@@ -1,0 +1,18 @@
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+
+# Mac system files
+.DS_Store
+
+# Optional: npm debug
+npm-debug.log*
+
+# Optional: local IDE settings (VSCode)
+.vscode/

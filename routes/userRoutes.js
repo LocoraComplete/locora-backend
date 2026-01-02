@@ -6,8 +6,6 @@ const bcrypt = require("bcrypt");
 // POST /api/users/register - add a new user
 router.post("/register", async (req, res) => {
   try {
-    console.log("POST /register hit");
-    console.log("Body:", req.body);
     const { UserId, Name, Email, Password, Phone, Gender } = req.body;
 
     // Check if email or UserId already exists

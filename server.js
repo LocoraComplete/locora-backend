@@ -23,6 +23,13 @@ app.get("/", (req, res) => {
 const userRoutes = require("./routes/userRoutes");
 app.use("/api/users", userRoutes);
 
+const profileRoutes = require("./routes/profileRoutes");
+app.use("/api/profiles", profileRoutes);
+
+const guideRoutes = require("./routes/guideRoutes");
+app.use("/api/guide", guideRoutes);
+
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {

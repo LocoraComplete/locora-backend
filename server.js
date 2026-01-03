@@ -29,6 +29,13 @@ app.use("/api/profiles", profileRoutes);
 const guideRoutes = require("./routes/guideRoutes");
 app.use("/api/guide", guideRoutes);
 
+const chatRoutes = require("./routes/chatRoutes");
+app.use("/api/chat", chatRoutes);
+
+const sosRoutes = require("./routes/sosRoutes");
+app.use("/api/sos", sosRoutes);
+
+app.use("/api/reviews", require("./routes/reviewRoutes"));
 
 const PORT = process.env.PORT || 5000;
 

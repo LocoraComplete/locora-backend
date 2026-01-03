@@ -1,11 +1,10 @@
 const mongoose = require("mongoose");
+const getNextSequence = require("../utils/generateId");
 
-// Define the User schema
 const userSchema = new mongoose.Schema({
   UserId: {
     type: String,
-    required: true,
-    unique: true
+    unique: true,
   },
   Name: {
     type: String,
@@ -35,7 +34,13 @@ const userSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Create the model
+userSchema.pre("save", async function () {
+  if (!this.UserId) {
+    this.UserId = await getNextSequence("UserId", "U");
+  }
+});
+
+
 const User = mongoose.model("User", userSchema);
 
 module.exports = User;

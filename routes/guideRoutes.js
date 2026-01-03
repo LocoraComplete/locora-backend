@@ -22,21 +22,8 @@ router.post("/create", async (req, res) => {
       });
     }
 
-    // ---------- AUTO GENERATE GUIDE ID ----------
-    const lastGuide = await Guide
-      .findOne({ GuideId: { $regex: /^G\d+$/ } })
-      .sort({ GuideId: -1 });
-
-    let newGuideId = "G001";
-
-    if (lastGuide?.GuideId) {
-      const lastNum = parseInt(lastGuide.GuideId.slice(1), 10);
-      if (!isNaN(lastNum)) newGuideId = `G${lastNum + 1}`;
-    }
-
-    // create guide entry
+    // Create guide — GuideId will be auto-generated in model
     const newGuide = new Guide({
-      GuideId: newGuideId,
       UserId,
       Location,
       Availability: Availability ?? true,

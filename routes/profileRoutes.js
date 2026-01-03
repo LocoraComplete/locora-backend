@@ -17,28 +17,13 @@ router.post("/create", async (req, res) => {
     // prevent duplicate profile for same user
     const existingProfile = await Profile.findOne({ UserId });
     if (existingProfile) {
-      return res.status(400).json({ message: "Profile already exists for this user" });
+      return res
+        .status(400)
+        .json({ message: "Profile already exists for this user" });
     }
 
-    // ---------- AUTO GENERATE PROFILE ID ----------
-    // get latest profile by numeric value, not string sort
-    const lastProfile = await Profile
-    .findOne({ ProfileId: { $regex: /^P\d+$/ } })
-    .sort({ ProfileId: -1 });   // 👈 sort by ProfileId itself
-
-    let newProfileId = "P001";
-
-    if (lastProfile && lastProfile.ProfileId) {
-        const num = parseInt(lastProfile.ProfileId.slice(1), 10);
-
-    if (!isNaN(num)) {
-        newProfileId = `P${num + 1}`;
-    }
-}
-
-    // create profile
+    // create profile (ProfileId will auto-generate in model)
     const newProfile = new Profile({
-      ProfileId: newProfileId,
       UserId,
       Bio,
       Interests,
@@ -54,7 +39,9 @@ router.post("/create", async (req, res) => {
 
   } catch (error) {
     console.error("PROFILE CREATE ERROR:", error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
 });
 

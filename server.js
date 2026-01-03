@@ -36,6 +36,11 @@ const sosRoutes = require("./routes/sosRoutes");
 app.use("/api/sos", sosRoutes);
 
 app.use("/api/reviews", require("./routes/reviewRoutes"));
+const placeRoutes = require("./routes/placeRoutes");
+app.use("/api/places", placeRoutes);
+
+const eventRoutes = require("./routes/eventRoutes");
+app.use("/api/events", eventRoutes);
 
 const PORT = process.env.PORT || 5000;
 

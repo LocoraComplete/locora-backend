@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
-const EventSchema = new mongoose.Schema({
-  EventId: {
+const FoodSchema = new mongoose.Schema({
+  FoodId: {
     type: String,
     unique: true,
     required: true
@@ -19,19 +19,24 @@ const EventSchema = new mongoose.Schema({
     maxlength: 50
   },
 
-  Date: {
-    type: Date,
+  Type: {
+    type: String,
+    enum: ["Veg", "Non-Veg", "Dessert", "Snack", "Drink"],
     required: true
+  },
+
+  PriceRange: {
+    type: String
   },
 
   Description: {
     type: String
   },
 
-   ImageURL: {
+  ImageURL: {
     type: String,
     required: true
   }
 });
 
-module.exports = mongoose.model("Event", EventSchema);
+module.exports = mongoose.model("Food", FoodSchema);

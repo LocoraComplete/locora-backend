@@ -35,4 +35,15 @@ router.post("/create-chat", async (req, res) => {
   }
 });
 
+// Get all chats
+router.get("/", async (req, res) => {
+  try {
+    const chats = await Chat.find().sort({ CreatedOn: -1 });
+    res.json(chats);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
 module.exports = router;

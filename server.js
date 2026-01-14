@@ -32,6 +32,8 @@ app.use("/api/guide", guideRoutes);
 const chatRoutes = require("./routes/chatRoutes");
 app.use("/api/chat", chatRoutes);
 
+app.use("/api/messages", require("./routes/messageRoutes"));
+
 const sosRoutes = require("./routes/sosRoutes");
 app.use("/api/sos", sosRoutes);
 
@@ -42,11 +44,16 @@ app.use("/api/places", placeRoutes);
 const eventRoutes = require("./routes/eventRoutes");
 app.use("/api/events", eventRoutes);
 
+const foodRoutes = require("./routes/foodRoutes");
+app.use("/api/food", foodRoutes);
+
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
 });
+
+
 
 
 

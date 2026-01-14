@@ -20,7 +20,11 @@ const PlaceSchema = new mongoose.Schema({
   },
   Description: {
     type: String
+  },
+  ImageURL: {
+  type: String
   }
+
 });
 
 module.exports = mongoose.model("Place", PlaceSchema);

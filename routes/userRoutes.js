@@ -3,6 +3,17 @@ const router = express.Router();
 const User = require("../models/User");
 const bcrypt = require("bcrypt");
 
+// GET /api/users - get all users (for testing)
+router.get("/", async (req, res) => {
+  try {
+    const users = await User.find().select("-Password"); // exclude passwords
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // POST /api/users/register - add a new user
 router.post("/register", async (req, res) => {
   try {

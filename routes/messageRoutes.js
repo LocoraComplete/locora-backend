@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const Message = require("../models/Message");
 const Chat = require("../models/Chat");
 const User = require("../models/User");
@@ -13,7 +14,11 @@ router.post("/send", async (req, res) => {
       return res.status(400).json({ message: "Missing fields" });
     }
 
-    const chat = await Chat.findOne({ ChatId });
+    if (!mongoose.Types.ObjectId.isValid(ChatId)) {
+      return res.status(400).json({ message: "Invalid Chat ID" });
+    }
+
+    const chat = await Chat.findById(ChatId);
     if (!chat) {
       return res.status(404).json({ message: "Chat not found" });
     }
@@ -42,7 +47,7 @@ router.post("/send", async (req, res) => {
 router.get("/:chatId", async (req, res) => {
   try {
     const messages = await Message.find({ ChatId: req.params.chatId })
-      .sort({ CreatedAt: 1 });
+      .sort({ createdAt: 1 });
 
     res.json(messages);
   } catch (err) {

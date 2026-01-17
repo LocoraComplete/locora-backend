@@ -3,8 +3,6 @@ const router = express.Router();
 
 const Review = require("../models/Review");
 const User = require("../models/User");
-// Place model can be added later when implemented
-
 
 // ---------- CREATE REVIEW ----------
 router.post("/create", async (req, res) => {

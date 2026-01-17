@@ -22,7 +22,7 @@ router.post("/create", async (req, res) => {
         .json({ message: "Profile already exists for this user" });
     }
 
-    // create profile (ProfileId will auto-generate in model)
+    // create profile 
     const newProfile = new Profile({
       UserId,
       Bio,

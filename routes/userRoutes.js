@@ -3,43 +3,6 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
-/*router.post("/register", async (req, res) => {
-  console.log("🔥 REGISTER HIT:", req.body);
-
-  const { Name, Email, Password, Phone, Gender } = req.body;
-
-  if (!Name || !Email || !Password) {
-    return res.status(400).json({ message: "Name, Email and Password are required" });
-  }
-
-  try {
-    const existingUser = await User.findOne({ Email: Email.toLowerCase() });
-    if (existingUser) return res.status(400).json({ message: "Email already exists" });
-      // 🔑 create handle from name
-    const Handle = "@" + Name.replace(/\s+/g, "").toLowerCase();
-    const hashedPassword = await bcrypt.hash(Password, 10);
-
-    const newUser = new User({
-      Name,
-      Email: Email.toLowerCase(),
-      Password: hashedPassword,
-      Phone: Phone || null,
-      Gender: Gender || "Other",
-    });
-
-    await newUser.save(); // ✅ actually saves to MongoDB
-    console.log("✅ User saved in DB:", newUser);
-
-    res.status(201).json({
-      message: "User created",
-      Name: newUser.Name,
-      Email: newUser.Email,
-    });
-  } catch (err) {
-    console.error("❌ Error saving user:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});*/
 router.post("/register", async (req, res) => {
   const { Name, Email, Password, Phone, Gender } = req.body;
 
@@ -70,7 +33,7 @@ router.post("/register", async (req, res) => {
 // ======================
 router.post("/login", async (req, res) => {
   try {
-    console.log("🔥 LOGIN HIT:", req.body);
+    console.log("LOGIN HIT:", req.body);
 
     const { Email, Password } = req.body;
 
@@ -81,14 +44,14 @@ router.post("/login", async (req, res) => {
     const emailLower = Email.toLowerCase();
 
     const user = await User.findOne({ Email: emailLower });
-    console.log("👤 Found user:", user);
+    console.log(" Found user:", user);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
     const isMatch = await bcrypt.compare(Password, user.Password);
-    console.log("🔐 Password match:", isMatch);
+    console.log(" Password match:", isMatch);
 
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });

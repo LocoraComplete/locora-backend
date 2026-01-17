@@ -1,3 +1,4 @@
+
 const express = require("express");
 const router = express.Router();
 const Place = require("../models/place");
@@ -42,7 +43,7 @@ router.post("/create", async (req, res) => {
 });
 
 /**
- * GET ALL PLACES  🔥 THIS FIXES 404
+ * GET ALL PLACES  
  */
 router.get("/", async (req, res) => {
   try {

@@ -4,7 +4,7 @@ const Event = require("../models/event");
 const Place = require("../models/place");
 
 /**
- * GET ALL EVENTS  ✅ REQUIRED
+ * GET ALL EVENTS  
  */
 router.get("/", async (req, res) => {
   try {

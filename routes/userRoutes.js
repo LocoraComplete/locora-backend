@@ -3,35 +3,55 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
+// ======================
+// REGISTER
+// ======================
 router.post("/register", async (req, res) => {
-  const { Name, Email, Password, Phone, Gender } = req.body;
+  try {
+    const { Name, Email, Password, Phone, Gender } = req.body;
 
-  if (!Name || !Email || !Password) {
-    return res.status(400).json({ message: "Name, Email and Password are required" });
+    if (!Name || !Email || !Password) {
+      return res.status(400).json({
+        message: "Name, Email and Password are required",
+      });
+    }
+
+    const existingUser = await User.findOne({
+      Email: Email.toLowerCase(),
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        message: "Email already exists",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(Password, 10);
+
+    const newUser = new User({
+      Name,
+      Email: Email.toLowerCase(),
+      Password: hashedPassword,
+      Phone,
+      Gender,
+    });
+
+    await newUser.save();
+
+    res.status(201).json({
+      message: "User created successfully",
+    });
+
+  } catch (error) {
+    console.error("❌ REGISTER ERROR:", error);
+    res.status(500).json({ message: "Server error" });
   }
-
-  const existingUser = await User.findOne({ Email: Email.toLowerCase() });
-  if (existingUser) return res.status(400).json({ message: "Email already exists" });
-
-  const hashedPassword = await bcrypt.hash(Password, 10);
-
-  const newUser = new User({
-    Name,
-    Email: Email.toLowerCase(),
-    Password: hashedPassword,
-    Phone,
-    Gender,
-  });
-
-  await newUser.save();
-
-  res.status(201).json({ message: "User created" });
 });
+
 
 // ======================
 // LOGIN
 // ======================
-
 router.post("/login", async (req, res) => {
   try {
     console.log("LOGIN HIT:", req.body);
@@ -39,24 +59,35 @@ router.post("/login", async (req, res) => {
     const { Email, Password } = req.body;
 
     if (!Email || !Password) {
-      return res.status(400).json({ message: "Email and Password are required" });
+      return res.status(400).json({
+        message: "Email and Password are required",
+      });
     }
 
-    const user = await User.findOne({ Email: Email.toLowerCase() });
+    const user = await User.findOne({
+      Email: Email.toLowerCase(),
+    });
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({
+        message: "User not found",
+      });
     }
 
-    const isMatch = await bcrypt.compare(Password, user.Password);
+    const isMatch = await bcrypt.compare(
+      Password,
+      user.Password
+    );
 
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
     }
 
     return res.status(200).json({
       message: "Login successful",
-      UserId: user.UserId,   
+      UserId: user.Userid,     // ✅ your custom ID
       Name: user.Name,
       Handle: user.Handle,
       Email: user.Email,
@@ -66,9 +97,13 @@ router.post("/login", async (req, res) => {
 
   } catch (error) {
     console.error("❌ LOGIN ERROR:", error);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({
+      message: "Server error",
+    });
   }
 });
+
+
 // ======================
 // DELETE ACCOUNT
 // ======================
@@ -76,16 +111,28 @@ router.delete("/delete/:id", async (req, res) => {
   try {
     const userId = req.params.id;
 
-    const deletedUser = await User.findByIdAndDelete(userId);
+    console.log("Deleting user with Userid:", userId);
+
+    // ✅ FIXED: Delete using custom Userid field
+    const deletedUser = await User.findOneAndDelete({
+      Userid: userId,
+    });
 
     if (!deletedUser) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({
+        message: "User not found",
+      });
     }
 
-    res.status(200).json({ message: "Account deleted successfully" });
+    res.status(200).json({
+      message: "Account deleted successfully",
+    });
+
   } catch (error) {
     console.error("❌ DELETE ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      message: "Server error",
+    });
   }
 });
 

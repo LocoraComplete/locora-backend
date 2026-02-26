@@ -87,7 +87,7 @@ router.post("/login", async (req, res) => {
 
     return res.status(200).json({
       message: "Login successful",
-      UserId: user.Userid,     // ✅ your custom ID
+      UserId: user.userId,     // ✅ your custom ID
       Name: user.Name,
       Handle: user.Handle,
       Email: user.Email,
@@ -109,13 +109,13 @@ router.post("/login", async (req, res) => {
 // ======================
 router.delete("/delete/:id", async (req, res) => {
   try {
-    const userId = req.params.id;
+    const UserId = req.params.id;
 
     console.log("Deleting user with Userid:", userId);
 
     // ✅ FIXED: Delete using custom Userid field
     const deletedUser = await User.findOneAndDelete({
-      Userid: userId,
+      UserId: userId,
     });
 
     if (!deletedUser) {

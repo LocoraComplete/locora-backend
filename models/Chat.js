@@ -10,25 +10,40 @@ const chatSchema = new mongoose.Schema({
   GroupName: {
     type: String,
     required: true,
-    maxlength: 50
+    maxlength: 50,
+  },
+
+  Description: {
+    type: String,
+    maxlength: 200,
+    default: "",
   },
 
   CreatedBy: {
-    type: String,         
+    type: String,
     required: true,
-    ref: "User"
   },
+
+  Members: [
+    {
+      type: String, // UserId (custom, e.g., U001)
+    },
+  ],
 
   CreatedOn: {
     type: Date,
-    default: Date.now
-  }
-
+    default: Date.now,
+  },
 }, { timestamps: false });
 
 chatSchema.pre("save", async function () {
   if (!this.ChatId) {
     this.ChatId = await getNextSequence("ChatId", "C");
+  }
+
+  // Ensure creator is member
+  if (this.CreatedBy && !this.Members.includes(this.CreatedBy)) {
+    this.Members.push(this.CreatedBy);
   }
 });
 

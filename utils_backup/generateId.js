@@ -7,7 +7,7 @@ async function getNextSequence(name, prefix) {
     { new: true, upsert: true }
   );
 
-  return `${prefix}${counter.seq.toString().padStart(3, "0")}`;
+  return prefix + String(counter.seq).padStart(3, "0");
 }
 
 module.exports = getNextSequence;

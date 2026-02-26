@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
       trim: true,
-      maxlength: 15,
+      maxlength: 10,
     },
 
     Gender: {

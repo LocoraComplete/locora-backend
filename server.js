@@ -1,50 +1,112 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const http = require("http");
+const { Server } = require("socket.io");
 const { connectDB } = require("./config/db");
 
-// load env
+// Load env variables
 dotenv.config();
 
-// connect Mongo/Postgres
+// Connect MongoDB
 connectDB();
 
+// Import models
+const Message = require("./models/Message");
+const User = require("./models/User");
+
+// Create express app
 const app = express();
 
-// middleware
+// Middleware
 app.use(express.json());
 app.use(cors());
 
-// test route
+// Test route
 app.get("/", (req, res) => {
   res.send("Locora Backend Running");
 });
 
-// routes
-const userRoutes = require("./routes/userRoutes");
-const profileRoutes = require("./routes/profileRoutes");
-const guideRoutes = require("./routes/guideRoutes");
-const chatRoutes = require("./routes/chatRoutes");
-const messageRoutes = require("./routes/messageRoutes");
-const sosRoutes = require("./routes/sosRoutes");
-const reviewRoutes = require("./routes/reviewRoutes");
-const placeRoutes = require("./routes/placeRoutes");
-const eventRoutes = require("./routes/eventRoutes");
-const foodRoutes = require("./routes/foodRoutes");
+// Routes
+app.use("/api/users", require("./routes/userRoutes"));
+app.use("/api/profiles", require("./routes/profileRoutes"));
+app.use("/api/guide", require("./routes/guideRoutes"));
+app.use("/api/chat", require("./routes/chatRoutes"));
+app.use("/api/messages", require("./routes/messageRoutes"));
+app.use("/api/sos", require("./routes/sosRoutes"));
+app.use("/api/reviews", require("./routes/reviewRoutes"));
+app.use("/api/places", require("./routes/placeRoutes"));
+app.use("/api/events", require("./routes/eventRoutes"));
+app.use("/api/food", require("./routes/foodRoutes"));
 
-app.use("/api/users", userRoutes);
-app.use("/api/profiles", profileRoutes);
-app.use("/api/guide", guideRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api/messages", messageRoutes);
-app.use("/api/sos", sosRoutes);
-app.use("/api/reviews", reviewRoutes);
-app.use("/api/places", placeRoutes);
-app.use("/api/events", eventRoutes);
-app.use("/api/food", foodRoutes);
+// ================= SOCKET.IO =================
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log("🟢 User connected:", socket.id);
+
+  // Join chat room
+  socket.on("join_chat", (chatId) => {
+    if (!chatId) return;
+    socket.join(chatId);
+    console.log(`Socket ${socket.id} joined chat ${chatId}`);
+  });
+
+  // Send message
+  socket.on("send_message", async (data) => {
+    try {
+      const { ChatId, SenderId, Text } = data;
+
+      if (!ChatId || !SenderId || !Text) {
+        console.log("Invalid message payload");
+        return;
+      }
+
+      // Save message to DB
+      const newMessage = new Message({
+        ChatId,
+        SenderId,
+        Text,
+      });
+
+      await newMessage.save();
+
+      // Fetch sender using CUSTOM UserId (NOT Mongo _id)
+      const user = await User.findOne({ UserId: SenderId });
+
+      const messageToSend = {
+        MessageId: newMessage.MessageId,
+        ChatId,
+        SenderId,
+        SenderName: user ? user.Handle : "User",
+        Text,
+        CreatedAt: newMessage.CreatedAt,
+      };
+
+      // Emit to room
+      io.to(ChatId).emit("receive_message", messageToSend);
+
+    } catch (error) {
+      console.error("❌ send_message error:", error);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log("🔴 User disconnected:", socket.id);
+  });
+});
+
+// ============================================
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });

@@ -31,6 +31,7 @@ router.post("/register", async (req, res) => {
 // ======================
 // LOGIN
 // ======================
+
 router.post("/login", async (req, res) => {
   try {
     console.log("LOGIN HIT:", req.body);
@@ -41,17 +42,13 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Email and Password are required" });
     }
 
-    const emailLower = Email.toLowerCase();
-
-    const user = await User.findOne({ Email: emailLower });
-    console.log(" Found user:", user);
+    const user = await User.findOne({ Email: Email.toLowerCase() });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
     const isMatch = await bcrypt.compare(Password, user.Password);
-    console.log(" Password match:", isMatch);
 
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -59,13 +56,14 @@ router.post("/login", async (req, res) => {
 
     return res.status(200).json({
       message: "Login successful",
-      UserId: user._id,
+      UserId: user.UserId,   
       Name: user.Name,
-      Handle:user.Handle,
+      Handle: user.Handle,
       Email: user.Email,
       Phone: user.Phone,
       Gender: user.Gender,
     });
+
   } catch (error) {
     console.error("❌ LOGIN ERROR:", error);
     return res.status(500).json({ message: "Server error" });
@@ -90,4 +88,5 @@ router.delete("/delete/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 module.exports = router;

@@ -117,6 +117,60 @@ router.get("/search/:query", async (req, res) => {
   }
 });
 
+// ===============================
+// GET GROUP DETAILS
+// ===============================
+router.get("/details/:chatId", async (req, res) => {
+  try {
+    const chat = await Chat.findOne({ ChatId: req.params.chatId });
+
+    if (!chat) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    // Get full user details of members
+    const members = await User.find({
+      UserId: { $in: chat.Members },
+    }).select("UserId Handle");
+
+    res.json({
+      ChatId: chat.ChatId,
+      GroupName: chat.GroupName,
+      Description: chat.Description,
+      CreatedBy: chat.CreatedBy,
+      CreatedOn: chat.CreatedOn,
+      Members: members,
+      TotalMembers: members.length,
+    });
+
+  } catch (err) {
+    console.error("Group details error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ===============================
+// GET ONLINE MEMBERS
+// ===============================
+router.get("/online/:chatId", async (req, res) => {
+  try {
+    const chat = await Chat.findOne({ ChatId: req.params.chatId });
+
+    if (!chat) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    const onlineMap = global.onlineUsers || new Map();
+
+    const online = chat.Members.filter((memberId) =>
+      onlineMap.has(memberId)
+    );
+
+    res.json({ online });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 module.exports = router; */
 const express = require("express");

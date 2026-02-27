@@ -49,17 +49,33 @@ const io = new Server(server, {
   },
 });
 
+// 🟢 Track Online Users
+// key = UserId
+// value = socketId
+const onlineUsers = new Map();
+
+// Make it accessible in routes
+global.onlineUsers = onlineUsers;
+
 io.on("connection", (socket) => {
   console.log("🟢 User connected:", socket.id);
 
-  // Join chat room
+  // ================= REGISTER USER =================
+  socket.on("register_user", (userId) => {
+    if (!userId) return;
+
+    onlineUsers.set(userId, socket.id);
+    console.log("User registered as online:", userId);
+  });
+
+  // ================= JOIN CHAT ROOM =================
   socket.on("join_chat", (chatId) => {
     if (!chatId) return;
     socket.join(chatId);
     console.log(`Socket ${socket.id} joined chat ${chatId}`);
   });
 
-  // Send message
+  // ================= SEND MESSAGE =================
   socket.on("send_message", async (data) => {
     try {
       const { ChatId, SenderId, Text } = data;
@@ -78,7 +94,7 @@ io.on("connection", (socket) => {
 
       await newMessage.save();
 
-      // Fetch sender using CUSTOM UserId (NOT Mongo _id)
+      // Fetch sender (using custom UserId)
       const user = await User.findOne({ UserId: SenderId });
 
       const messageToSend = {
@@ -98,8 +114,18 @@ io.on("connection", (socket) => {
     }
   });
 
+  // ================= DISCONNECT =================
   socket.on("disconnect", () => {
     console.log("🔴 User disconnected:", socket.id);
+
+    // Remove user from online map
+    for (let [userId, sockId] of onlineUsers.entries()) {
+      if (sockId === socket.id) {
+        onlineUsers.delete(userId);
+        console.log("User removed from online:", userId);
+        break;
+      }
+    }
   });
 });
 

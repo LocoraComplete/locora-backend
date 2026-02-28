@@ -4,33 +4,37 @@ const getNextSequence = require("../utils/generateId");
 const messageSchema = new mongoose.Schema({
   MessageId: {
     type: String,
-    unique: true
+    unique: true,
   },
 
   ChatId: {
     type: String,
     required: true,
-    ref: "Chat"
+    ref: "Chat",
   },
 
   SenderId: {
     type: String,
-    required: true,
-    ref: "User"
+    default: null, // allow null for system messages
+    ref: "User",
   },
 
   Text: {
     type: String,
     required: true,
-    maxlength: 1000
+    maxlength: 1000,
   },
 
   CreatedAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 
-}, { timestamps: false });
+  IsSystem: {
+    type: Boolean,
+    default: false,
+  },
+});
 
 messageSchema.pre("save", async function () {
   if (!this.MessageId) {

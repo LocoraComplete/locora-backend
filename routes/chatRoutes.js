@@ -1,12 +1,11 @@
-/*const express = require("express");
+const express = require("express");
 const router = express.Router();
 const Chat = require("../models/Chat");
 const User = require("../models/User");
+const Message = require("../models/Message");
 
 
-// ===============================
-// CREATE GROUP
-// ===============================
+// ================= CREATE GROUP =================
 router.post("/create", async (req, res) => {
   try {
     const { GroupName, Description, CreatedBy } = req.body;
@@ -28,7 +27,6 @@ router.post("/create", async (req, res) => {
     });
 
     await newChat.save();
-
     res.status(201).json(newChat);
 
   } catch (err) {
@@ -37,23 +35,67 @@ router.post("/create", async (req, res) => {
   }
 });
 
+// =============================
+// RECOMMENDED GROUPS
+// =============================
+router.get("/recommend/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
 
-// ===============================
-// JOIN GROUP
-// ===============================
+    if (!userId) {
+      return res.status(400).json({ message: "UserId required" });
+    }
+
+    const chats = await Chat.find({
+      Members: { $nin: [userId] }, // NOT IN members array
+    }).sort({ CreatedOn: -1 });
+
+    res.json(chats);
+
+  } catch (err) {
+    console.error("Recommend error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ================= JOIN GROUP =================
 router.post("/join", async (req, res) => {
   try {
     const { ChatId, UserId } = req.body;
 
     const chat = await Chat.findOne({ ChatId });
-    if (!chat) {
-      return res.status(404).json({ message: "Group not found" });
+    if (!chat) return res.status(404).json({ message: "Group not found" });
+
+    if (chat.Members.includes(UserId)) {
+      return res.json({ message: "Already a member" });
     }
 
-    if (!chat.Members.includes(UserId)) {
-      chat.Members.push(UserId);
-      await chat.save();
-    }
+    const user = await User.findOne({ UserId });
+    if (!user) return res.status(400).json({ message: "Invalid user" });
+
+    chat.Members.push(UserId);
+    await chat.save();
+
+    const systemText = `${user.Handle} joined the group`;
+
+    const systemMessage = new Message({
+      ChatId,
+      SenderId: UserId,
+      Text: systemText,
+      IsSystem: true,
+    });
+
+    await systemMessage.save();
+
+    const io = req.app.get("io");
+
+    io.to(ChatId).emit("receive_message", {
+      ChatId,
+      SenderId: UserId,
+      SenderName: "System",
+      Text: systemText,
+      IsSystem: true,
+    });
 
     res.json({ message: "Joined successfully" });
 
@@ -64,9 +106,88 @@ router.post("/join", async (req, res) => {
 });
 
 
-// ===============================
-// GET MY GROUPS
-// ===============================
+// ================= LEAVE GROUP =================
+router.delete("/leave/:chatId", async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "UserId required" });
+    }
+
+    const chat = await Chat.findOne({ ChatId: chatId });
+    if (!chat) return res.status(404).json({ message: "Group not found" });
+
+    if (!chat.Members.includes(userId)) {
+      return res.status(400).json({ message: "Not a member" });
+    }
+
+    chat.Members = chat.Members.filter(id => id !== userId);
+    await chat.save();
+
+    const user = await User.findOne({ UserId: userId });
+
+    const systemText = `${user.Handle} left the group`;
+
+    const systemMessage = new Message({
+      ChatId: chatId,
+      SenderId: userId,
+      Text: systemText,
+      IsSystem: true,
+    });
+
+    await systemMessage.save();
+
+    const io = req.app.get("io");
+
+    io.to(chatId).emit("receive_message", {
+      ChatId: chatId,
+      SenderId: userId,
+      SenderName: "System",
+      Text: systemText,
+      IsSystem: true,
+    });
+
+    res.json({ message: "Left successfully" });
+
+  } catch (err) {
+    console.error("Leave group error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+// ================= DELETE GROUP =================
+router.delete("/delete/:chatId", async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "UserId required" });
+    }
+
+    const chat = await Chat.findOne({ ChatId: chatId });
+    if (!chat) return res.status(404).json({ message: "Group not found" });
+
+    if (chat.CreatedBy !== userId) {
+      return res.status(403).json({ message: "Only admin can delete group" });
+    }
+
+    await Message.deleteMany({ ChatId: chatId });
+    await Chat.deleteOne({ ChatId: chatId });
+
+    res.json({ message: "Group deleted successfully" });
+
+  } catch (err) {
+    console.error("Delete group error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+// ================= USER GROUPS =================
 router.get("/user/:userId", async (req, res) => {
   try {
     const chats = await Chat.find({
@@ -82,53 +203,12 @@ router.get("/user/:userId", async (req, res) => {
 });
 
 
-// ===============================
-// RECOMMENDED GROUPS
-// ===============================
-router.get("/recommend/:userId", async (req, res) => {
-  try {
-    const chats = await Chat.find({
-      Members: { $ne: req.params.userId },
-    }).limit(10);
-
-    res.json(chats);
-
-  } catch (err) {
-    console.error("Recommend error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-
-// ===============================
-// SEARCH GROUPS
-// ===============================
-router.get("/search/:query", async (req, res) => {
-  try {
-    const chats = await Chat.find({
-      GroupName: { $regex: req.params.query, $options: "i" },
-    }).limit(20);
-
-    res.json(chats);
-
-  } catch (err) {
-    console.error("Search error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// ===============================
-// GET GROUP DETAILS
-// ===============================
+// ================= GROUP DETAILS =================
 router.get("/details/:chatId", async (req, res) => {
   try {
     const chat = await Chat.findOne({ ChatId: req.params.chatId });
+    if (!chat) return res.status(404).json({ message: "Group not found" });
 
-    if (!chat) {
-      return res.status(404).json({ message: "Group not found" });
-    }
-
-    // Get full user details of members
     const members = await User.find({
       UserId: { $in: chat.Members },
     }).select("UserId Handle");
@@ -149,169 +229,23 @@ router.get("/details/:chatId", async (req, res) => {
   }
 });
 
-// ===============================
-// GET ONLINE MEMBERS
-// ===============================
+
+// ================= ONLINE MEMBERS =================
 router.get("/online/:chatId", async (req, res) => {
   try {
     const chat = await Chat.findOne({ ChatId: req.params.chatId });
+    if (!chat) return res.status(404).json({ message: "Group not found" });
 
-    if (!chat) {
-      return res.status(404).json({ message: "Group not found" });
-    }
-
-    const onlineMap = global.onlineUsers || new Map();
-
-    const online = chat.Members.filter((memberId) =>
-      onlineMap.has(memberId)
+    const online = chat.Members.filter(memberId =>
+      global.onlineUsers?.has(memberId)
     );
 
     res.json({ online });
+
   } catch (err) {
+    console.error("Online members error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
-
-module.exports = router; */
-const express = require("express");
-const router = express.Router();
-const mongoose = require("mongoose");
-const Chat = require("../models/Chat");
-const User = require("../models/User");
-
-
-// ===============================
-// CREATE GROUP
-// ===============================
-router.post("/create", async (req, res) => {
-  try {
-    const { GroupName, Description, CreatedBy } = req.body;
-
-    if (!GroupName || !CreatedBy) {
-      return res.status(400).json({ message: "GroupName and CreatedBy required" });
-    }
-
-    // ✅ Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(CreatedBy)) {
-      return res.status(400).json({ message: "Invalid user ID format" });
-    }
-
-    // ✅ Use Mongo _id
-    const user = await User.findById(CreatedBy);
-    if (!user) {
-      return res.status(400).json({ message: "Invalid user" });
-    }
-
-    const newChat = new Chat({
-      GroupName,
-      Description,
-      CreatedBy,
-      Members: [CreatedBy],
-    });
-
-    await newChat.save();
-
-    res.status(201).json(newChat);
-
-  } catch (err) {
-    console.error("Create group error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-
-// ===============================
-// JOIN GROUP
-// ===============================
-router.post("/join", async (req, res) => {
-  try {
-    const { ChatId, UserId } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(ChatId) || 
-        !mongoose.Types.ObjectId.isValid(UserId)) {
-      return res.status(400).json({ message: "Invalid ID format" });
-    }
-
-    // ✅ Use _id instead of ChatId
-    const chat = await Chat.findById(ChatId);
-    if (!chat) {
-      return res.status(404).json({ message: "Group not found" });
-    }
-
-    if (!chat.Members.includes(UserId)) {
-      chat.Members.push(UserId);
-      await chat.save();
-    }
-
-    res.json({ message: "Joined successfully" });
-
-  } catch (err) {
-    console.error("Join group error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-
-// ===============================
-// GET MY GROUPS
-// ===============================
-router.get("/user/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
-    }
-
-    const chats = await Chat.find({
-      Members: userId,
-    }).sort({ createdAt: -1 });
-
-    res.json(chats);
-
-  } catch (err) {
-    console.error("User groups error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-
-// ===============================
-// RECOMMENDED GROUPS
-// ===============================
-router.get("/recommend/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const chats = await Chat.find({
-      Members: { $ne: userId },
-    }).limit(10);
-
-    res.json(chats);
-
-  } catch (err) {
-    console.error("Recommend error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-
-// ===============================
-// SEARCH GROUPS
-// ===============================
-router.get("/search/:query", async (req, res) => {
-  try {
-    const chats = await Chat.find({
-      GroupName: { $regex: req.params.query, $options: "i" },
-    }).limit(20);
-
-    res.json(chats);
-
-  } catch (err) {
-    console.error("Search error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
 
 module.exports = router;

@@ -27,40 +27,27 @@ app.get("/", (req, res) => {
   res.send("Locora Backend Running");
 });
 
-// Routes
-app.use("/api/users", require("./routes/userRoutes"));
-app.use("/api/profiles", require("./routes/profileRoutes"));
-app.use("/api/guide", require("./routes/guideRoutes"));
-app.use("/api/chat", require("./routes/chatRoutes"));
-app.use("/api/messages", require("./routes/messageRoutes"));
-app.use("/api/sos", require("./routes/sosRoutes"));
-app.use("/api/reviews", require("./routes/reviewRoutes"));
-app.use("/api/places", require("./routes/placeRoutes"));
-app.use("/api/events", require("./routes/eventRoutes"));
-app.use("/api/food", require("./routes/foodRoutes"));
-
-// ================= SOCKET.IO =================
+// ================= SOCKET.IO SETUP =================
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "DELETE"],
   },
 });
 
-// 🟢 Track Online Users
-// key = UserId
-// value = socketId
-const onlineUsers = new Map();
+// Make io accessible inside routes
+app.set("io", io);
 
-// Make it accessible in routes
+// 🟢 Track Online Users
+const onlineUsers = new Map();
 global.onlineUsers = onlineUsers;
 
 io.on("connection", (socket) => {
   console.log("🟢 User connected:", socket.id);
 
-  // ================= REGISTER USER =================
+  // REGISTER USER
   socket.on("register_user", (userId) => {
     if (!userId) return;
 
@@ -68,24 +55,20 @@ io.on("connection", (socket) => {
     console.log("User registered as online:", userId);
   });
 
-  // ================= JOIN CHAT ROOM =================
+  // JOIN CHAT ROOM
   socket.on("join_chat", (chatId) => {
     if (!chatId) return;
     socket.join(chatId);
     console.log(`Socket ${socket.id} joined chat ${chatId}`);
   });
 
-  // ================= SEND MESSAGE =================
+  // SEND MESSAGE
   socket.on("send_message", async (data) => {
     try {
       const { ChatId, SenderId, Text } = data;
 
-      if (!ChatId || !SenderId || !Text) {
-        console.log("Invalid message payload");
-        return;
-      }
+      if (!ChatId || !SenderId || !Text) return;
 
-      // Save message to DB
       const newMessage = new Message({
         ChatId,
         SenderId,
@@ -94,7 +77,6 @@ io.on("connection", (socket) => {
 
       await newMessage.save();
 
-      // Fetch sender (using custom UserId)
       const user = await User.findOne({ UserId: SenderId });
 
       const messageToSend = {
@@ -106,7 +88,6 @@ io.on("connection", (socket) => {
         CreatedAt: newMessage.CreatedAt,
       };
 
-      // Emit to room
       io.to(ChatId).emit("receive_message", messageToSend);
 
     } catch (error) {
@@ -114,11 +95,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ================= DISCONNECT =================
+  // DISCONNECT
   socket.on("disconnect", () => {
     console.log("🔴 User disconnected:", socket.id);
 
-    // Remove user from online map
     for (let [userId, sockId] of onlineUsers.entries()) {
       if (sockId === socket.id) {
         onlineUsers.delete(userId);
@@ -129,7 +109,17 @@ io.on("connection", (socket) => {
   });
 });
 
-// ============================================
+// ================= ROUTES =================
+app.use("/api/users", require("./routes/userRoutes"));
+app.use("/api/profiles", require("./routes/profileRoutes"));
+app.use("/api/guide", require("./routes/guideRoutes"));
+app.use("/api/chat", require("./routes/chatRoutes"));
+app.use("/api/messages", require("./routes/messageRoutes"));
+app.use("/api/sos", require("./routes/sosRoutes"));
+app.use("/api/reviews", require("./routes/reviewRoutes"));
+app.use("/api/places", require("./routes/placeRoutes"));
+app.use("/api/events", require("./routes/eventRoutes"));
+app.use("/api/food", require("./routes/foodRoutes"));
 
 const PORT = process.env.PORT || 5000;
 

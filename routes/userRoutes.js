@@ -154,7 +154,7 @@ router.delete("/delete/:UserId", async (req, res) => {
 
     // ✅ FIXED: Delete using custom Userid field
     const deletedUser = await User.findOneAndDelete({
-      UserId: userId,
+      UserId: UserId,
     });
 
     if (!deletedUser) {

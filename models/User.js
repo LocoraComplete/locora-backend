@@ -51,13 +51,12 @@ const userSchema = new mongoose.Schema(
       primary: {
         type: String,
         match: [/^\+91\d{10}$/, "Invalid primary emergency number"],
-        required: function () {
-          return this.isNew; // only required for new users
-        },
+        required: false,
       },
       secondary: {
         type: String,
         match: [/^\+91\d{10}$/, "Invalid secondary emergency number"],
+        required: false,
       },
     },
   },

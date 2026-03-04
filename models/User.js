@@ -12,7 +12,6 @@ const userSchema = new mongoose.Schema(
       maxlength: 50,
     },
 
-    // AUTO-GENERATED HANDLE (@firstnamelastname)
     Handle: {
       type: String,
       unique: true,
@@ -39,7 +38,7 @@ const userSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
       trim: true,
-      maxlength: 10,
+      maxlength: 13,
     },
 
     Gender: {
@@ -47,21 +46,31 @@ const userSchema = new mongoose.Schema(
       enum: ["Male", "Female", "Other"],
       default: "Other",
     },
+
+    emergencyContacts: {
+      primary: {
+        type: String,
+        match: [/^\+91\d{10}$/, "Invalid primary emergency number"],
+        required: function () {
+          return this.isNew; // only required for new users
+        },
+      },
+      secondary: {
+        type: String,
+        match: [/^\+91\d{10}$/, "Invalid secondary emergency number"],
+      },
+    },
   },
   { timestamps: true }
 );
 
-// ============================
 // PRE-SAVE HOOK
-// ============================
 userSchema.pre("save", async function () {
   try {
-    // Generate custom UserId
     if (!this.UserId) {
       this.UserId = await getNextSequence("UserId", "U");
     }
 
-    // Generate handle ONLY ON FIRST SAVE
     if (!this.Handle && this.Name) {
       this.Handle = "@" + this.Name.replace(/\s+/g, "").toLowerCase();
     }

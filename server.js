@@ -4,12 +4,15 @@ const dotenv = require("dotenv");
 const http = require("http");
 const { Server } = require("socket.io");
 const { connectDB } = require("./config/db");
+const mongoose = require("mongoose");
+
 
 // Load env variables
 dotenv.config();
 
 // Connect MongoDB
 connectDB();
+
 
 // Import models
 const Message = require("./models/Message");
@@ -21,6 +24,9 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors());
+// ================= GRIDFS =================
+app.use("/uploads", express.static("uploads"));
+
 
 // Test route
 app.get("/", (req, res) => {
@@ -109,6 +115,12 @@ io.on("connection", (socket) => {
   });
 });
 
+
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+app.use("/uploads", express.static("uploads"));
+
 // ================= ROUTES =================
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/profiles", require("./routes/profileRoutes"));
@@ -120,7 +132,7 @@ app.use("/api/reviews", require("./routes/reviewRoutes"));
 app.use("/api/places", require("./routes/placeRoutes"));
 app.use("/api/events", require("./routes/eventRoutes"));
 app.use("/api/food", require("./routes/foodRoutes"));
-
+app.use("/api/posts", require("./routes/postRoutes"));
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, "0.0.0.0", () => {

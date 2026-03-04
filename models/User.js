@@ -12,6 +12,21 @@ const userSchema = new mongoose.Schema(
       maxlength: 50,
     },
 
+<<<<<<< HEAD
+=======
+    Bio: {   // ✅ ADD THIS
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 200,
+    },
+    
+    ProfilePhoto: {
+       type: String,
+       default: "",
+    },
+
+>>>>>>> 3ba5c80 (Fix language context error and explore screen routing)
     Handle: {
       type: String,
       unique: true,
@@ -40,6 +55,12 @@ const userSchema = new mongoose.Schema(
       trim: true,
       maxlength: 13,
     },
+    Pronouns: {          // ✅ ADD THIS
+      type: String,
+      trim: true,
+      maxlength: 30,
+      default: "",
+    },
 
     Gender: {
       type: String,
@@ -62,6 +83,7 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+<<<<<<< HEAD
 
 // PRE-SAVE HOOK
 userSchema.pre("save", async function () {
@@ -79,6 +101,8 @@ userSchema.pre("save", async function () {
   }
 });
 
+=======
+>>>>>>> 3ba5c80 (Fix language context error and explore screen routing)
 const User = mongoose.model("User", userSchema);
 
 module.exports = User;

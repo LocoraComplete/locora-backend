@@ -2,57 +2,10 @@ const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const upload = require("../middlewares/upload"); // multer middleware for image upload
+const path = require("path");
 
-// ======================
-// CHECK OLD PASSWORD
-// ======================
-router.post("/:UserId/check-password", async (req, res) => {
-  try {
-    const { UserId } = req.params;
-    const { oldPassword } = req.body;
 
-    if (!oldPassword || oldPassword.length < 6) {
-      return res.status(400).json({ valid: false, message: "Invalid old password" });
-    }
-
-    const user = await User.findOne({ UserId });
-    if (!user) return res.status(404).json({ valid: false, message: "User not found" });
-
-    const isMatch = await bcrypt.compare(oldPassword, user.Password);
-    if (!isMatch) return res.status(200).json({ valid: false });
-
-    return res.status(200).json({ valid: true });
-  } catch (error) {
-    console.error("❌ CHECK PASSWORD ERROR:", error);
-    return res.status(500).json({ valid: false, message: "Server error" });
-  }
-});
-
-// ======================
-// UPDATE PASSWORD
-// ======================
-router.put("/:UserId/update-password", async (req, res) => {
-  try {
-    const { UserId } = req.params;
-    const { newPassword } = req.body;
-
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: "Invalid new password" });
-    }
-
-    const user = await User.findOne({ UserId });
-    if (!user) return res.status(404).json({ success: false, message: "User not found" });
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.Password = hashedPassword;
-    await user.save();
-
-    return res.status(200).json({ success: true, message: "Password updated successfully" });
-  } catch (error) {
-    console.error("❌ UPDATE PASSWORD ERROR:", error);
-    return res.status(500).json({ success: false, message: "Server error" });
-  }
-});
 
 // ======================
 // REGISTER
@@ -89,6 +42,7 @@ router.post("/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(Password, 10);
 
     const newUser = new User({
+      UserId: "U" + Date.now(),
       Name,
       Email,
       Password: hashedPassword,
@@ -110,9 +64,7 @@ router.post("/register", async (req, res) => {
 // ======================
 router.post("/login", async (req, res) => {
   try {
-    let { Email, Password } = req.body;
-
-    Email = Email?.trim().toLowerCase();
+    const { Email, Password } = req.body;
 
     if (!Email || !Password) {
       return res.status(400).json({ message: "Email and Password are required" });
@@ -129,14 +81,15 @@ router.post("/login", async (req, res) => {
     }
 
     return res.status(200).json({
-      message: "Login successful",
-      UserId: user.UserId,     
-      Name: user.Name,
-      Handle: user.Handle,
-      Email: user.Email,
-      Phone: user.Phone,
-      Gender: user.Gender,
-    });
+  message: "Login successful",
+  UserId: user.UserId,
+  Name: user.Name,
+  Handle: user.Handle,
+  Pronouns: user.Pronouns,
+  Bio: user.Bio,
+  profilePic: user.profilePic || null,
+});
+
   } catch (error) {
     console.error("❌ LOGIN ERROR:", error);
     return res.status(500).json({ message: "Server error" });
@@ -152,7 +105,6 @@ router.delete("/delete/:UserId", async (req, res) => {
 
     console.log("Deleting user with Userid:", userId);
 
-    // ✅ FIXED: Delete using custom Userid field
     const deletedUser = await User.findOneAndDelete({
       UserId: UserId,
     });
@@ -164,6 +116,105 @@ router.delete("/delete/:UserId", async (req, res) => {
     res.status(200).json({ message: "Account deleted successfully" });
   } catch (error) {
     console.error("❌ DELETE ERROR:", error);
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
+
+
+
+
+router.post(
+  "/upload-profile/:UserId",
+  upload.single("profilePic"),
+  async (req, res) => {
+    try {
+      const { UserId } = req.params;
+
+      const updatedUser = await User.findOneAndUpdate(
+        { UserId },
+        { $set: { profilePic: `/uploads/${req.file.filename}` } },
+        { new: true }
+      );
+
+      res.status(200).json({
+        message: "Profile picture updated",
+        profilePic: `${req.protocol}://${req.get("host")}${updatedUser.profilePic}`,
+      });
+    } catch (err) {
+      console.log(err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// ======================
+// UPDATE PROFILE
+// ======================
+// Update profile (text + optional profile picture)
+router.put(
+  "/update-profile/:UserId",
+  upload.single("profilePic"), // field name must match frontend
+  async (req, res) => {
+    try {
+      const { UserId } = req.params;
+      const { name, username, pronouns, bio } = req.body;
+
+      const updateData = {
+        Name: name,
+        Handle: username,
+        Pronouns: pronouns,
+        Bio: bio,
+      };
+
+      if (req.file) {
+        updateData.profilePic = `/uploads/${req.file.filename}`;
+      }
+
+      const updatedUser = await User.findOneAndUpdate(
+        { UserId },
+        { $set: updateData },
+        { new: true }
+      );
+
+      if (!updatedUser) return res.status(404).json({ message: "User not found" });
+
+      res.status(200).json({
+  message: "Profile updated successfully",
+  UserId: updatedUser.UserId,
+  Name: updatedUser.Name,
+  Handle: updatedUser.Handle,
+  Pronouns: updatedUser.Pronouns,
+  Bio: updatedUser.Bio,
+  profilePic: updatedUser.profilePic
+    ? `${req.protocol}://${req.get("host")}${updatedUser.profilePic}`
+    : null,
+});
+    } catch (error) {
+      console.error("UPDATE ERROR:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+// GET USER BY ID
+router.get("/:UserId", async (req, res) => {
+  try {
+    const user = await User.findOne({ UserId: req.params.UserId });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({
+      UserId: user.UserId,
+      Name: user.Name,
+      Handle: user.Handle,
+      Bio: user.Bio,
+      Pronouns: user.Pronouns,
+      profilePic: user.profilePic,
+    });
+  } catch (error) {
     res.status(500).json({ message: "Server error" });
   }
 });

@@ -12,8 +12,6 @@ const userSchema = new mongoose.Schema(
       maxlength: 50,
     },
 
-<<<<<<< HEAD
-=======
     Bio: {   // ✅ ADD THIS
       type: String,
       default: "",
@@ -26,7 +24,6 @@ const userSchema = new mongoose.Schema(
        default: "",
     },
 
->>>>>>> 3ba5c80 (Fix language context error and explore screen routing)
     Handle: {
       type: String,
       unique: true,
@@ -83,26 +80,6 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-<<<<<<< HEAD
-
-// PRE-SAVE HOOK
-userSchema.pre("save", async function () {
-  try {
-    if (!this.UserId) {
-      this.UserId = await getNextSequence("UserId", "U");
-    }
-
-    if (!this.Handle && this.Name) {
-      this.Handle = "@" + this.Name.replace(/\s+/g, "").toLowerCase();
-    }
-  } catch (err) {
-    console.error("User pre-save error:", err);
-    throw err;
-  }
-});
-
-=======
->>>>>>> 3ba5c80 (Fix language context error and explore screen routing)
 const User = mongoose.model("User", userSchema);
 
 module.exports = User;

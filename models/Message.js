@@ -11,11 +11,12 @@ const messageSchema = new mongoose.Schema({
     type: String,
     required: true,
     ref: "Chat",
+    index: true,
   },
 
   SenderId: {
     type: String,
-    default: null, // allow null for system messages
+    default: null,
     ref: "User",
   },
 
@@ -24,6 +25,24 @@ const messageSchema = new mongoose.Schema({
     required: true,
     maxlength: 1000,
   },
+
+  Type: {
+    type: String,
+    enum: ["text", "image", "location", "system"],
+    default: "text",
+  },
+
+  MediaUrl: {
+    type: String,
+    default: null,
+  },
+
+  ReadBy: [
+    {
+      type: String,
+      ref: "User",
+    },
+  ],
 
   CreatedAt: {
     type: Date,
@@ -34,7 +53,15 @@ const messageSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+
+  Status: {
+    type: String,
+    enum: ["sent", "delivered", "seen"],
+    default: "sent",
+  },
 });
+
+messageSchema.index({ ChatId: 1, CreatedAt: 1 });
 
 messageSchema.pre("save", async function () {
   if (!this.MessageId) {

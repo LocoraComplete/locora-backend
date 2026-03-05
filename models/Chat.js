@@ -7,10 +7,17 @@ const chatSchema = new mongoose.Schema({
     unique: true,
   },
 
+  ChatType: {
+    type: String,
+    enum: ["group", "private"],
+    default: "group",
+  },
+
   GroupName: {
     type: String,
-    required: true,
-    maxlength: 50,
+    required: function () {
+      return this.ChatType === "group";
+    },
   },
 
   Description: {
@@ -26,27 +33,43 @@ const chatSchema = new mongoose.Schema({
 
   Members: [
     {
-      type: String, // UserId (custom, e.g., U001)
+      type: String,
     },
   ],
+
+  LastMessage: {
+    type: String,
+    default: "",
+  },
+
+  LastMessageTime: {
+    type: Date,
+  },
+
+  LastMessageSender: {
+    type: String,
+  },
+
+  UnreadCounts: {
+    type: Map,
+    of: Number,
+    default: {},
+  },
 
   CreatedOn: {
     type: Date,
     default: Date.now,
   },
-}, { timestamps: false });
+});
 
 chatSchema.pre("save", async function () {
   if (!this.ChatId) {
     this.ChatId = await getNextSequence("ChatId", "C");
   }
 
-  // Ensure creator is member
   if (this.CreatedBy && !this.Members.includes(this.CreatedBy)) {
     this.Members.push(this.CreatedBy);
   }
 });
 
-const Chat = mongoose.model("Chat", chatSchema);
-
-module.exports = Chat;
+module.exports = mongoose.model("Chat", chatSchema);

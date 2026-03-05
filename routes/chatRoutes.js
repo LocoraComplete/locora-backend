@@ -20,6 +20,7 @@ router.post("/create", async (req, res) => {
     }
 
     const newChat = new Chat({
+      ChatType: "group",
       GroupName,
       Description,
       CreatedBy,
@@ -66,6 +67,9 @@ router.post("/join", async (req, res) => {
     const chat = await Chat.findOne({ ChatId });
     if (!chat) return res.status(404).json({ message: "Group not found" });
 
+    if (chat.ChatType !== "group")
+      return res.status(400).json({ message: "Cannot join private chat" });
+
     if (chat.Members.includes(UserId)) {
       return res.json({ message: "Already a member" });
     }
@@ -80,22 +84,21 @@ router.post("/join", async (req, res) => {
 
     const systemMessage = new Message({
       ChatId,
-      SenderId: UserId,
+      SenderId: null,
       Text: systemText,
       IsSystem: true,
+      ReadBy: chat.Members,
     });
 
     await systemMessage.save();
 
+    chat.LastMessage = systemText;
+    chat.LastMessageTime = new Date();
+    await chat.save();
+
     const io = req.app.get("io");
 
-    io.to(ChatId).emit("receive_message", {
-      ChatId,
-      SenderId: UserId,
-      SenderName: "System",
-      Text: systemText,
-      IsSystem: true,
-    });
+    io.to(ChatId).emit("receive_message", systemMessage);
 
     res.json({ message: "Joined successfully" });
 
@@ -132,22 +135,21 @@ router.delete("/leave/:chatId", async (req, res) => {
 
     const systemMessage = new Message({
       ChatId: chatId,
-      SenderId: userId,
+      SenderId: null,
       Text: systemText,
       IsSystem: true,
+      ReadBy: chat.Members,
     });
 
     await systemMessage.save();
 
+    chat.LastMessage = systemText;
+    chat.LastMessageTime = new Date();
+    await chat.save();
+
     const io = req.app.get("io");
 
-    io.to(chatId).emit("receive_message", {
-      ChatId: chatId,
-      SenderId: userId,
-      SenderName: "System",
-      Text: systemText,
-      IsSystem: true,
-    });
+    io.to(chatId).emit("receive_message", systemMessage);
 
     res.json({ message: "Left successfully" });
 
@@ -187,17 +189,38 @@ router.delete("/delete/:chatId", async (req, res) => {
 });
 
 
-// ================= USER GROUPS =================
+// ================= USER CHATS (GROUP + PRIVATE) =================
 router.get("/user/:userId", async (req, res) => {
   try {
-    const chats = await Chat.find({
-      Members: req.params.userId,
-    }).sort({ CreatedOn: -1 });
+    const { userId } = req.params;
 
-    res.json(chats);
+    const chats = await Chat.find({
+      Members: userId,
+    }).sort({ LastMessageTime: -1 });
+
+    const enrichedChats = await Promise.all(
+      chats.map(async (chat) => {
+        let users = [];
+
+        if (chat.ChatType === "private") {
+          const members = await User.find({
+            UserId: { $in: chat.Members },
+          }).select("UserId Handle");
+
+          users = members;
+        }
+
+        return {
+          ...chat.toObject(),
+          Users: users, 
+        };
+      })
+    );
+
+    res.json(enrichedChats);
 
   } catch (err) {
-    console.error("User groups error:", err);
+    console.error("User chats error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -244,6 +267,46 @@ router.get("/online/:chatId", async (req, res) => {
 
   } catch (err) {
     console.error("Online members error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ================= PRIVATE CHAT =================
+router.post("/private", async (req, res) => {
+  try {
+    const { User1, User2 } = req.body;
+
+    if (!User1 || !User2) {
+      return res.status(400).json({ message: "Both users required" });
+    }
+
+    if (User1 === User2) {
+      return res.status(400).json({ message: "Cannot chat with yourself" });
+    }
+
+    // Check if chat already exists
+    const existingChat = await Chat.findOne({
+      ChatType: "private",
+      Members: { $all: [User1, User2], $size: 2 },
+    });
+
+    if (existingChat) {
+      return res.json(existingChat);
+    }
+
+    // Create new private chat
+    const newChat = new Chat({
+      ChatType: "private",
+      CreatedBy: User1,
+      Members: [User1, User2],
+    });
+
+    await newChat.save();
+
+    res.status(201).json(newChat);
+
+  } catch (err) {
+    console.error("Private chat error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });

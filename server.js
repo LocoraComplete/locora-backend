@@ -70,36 +70,55 @@ io.on("connection", (socket) => {
 
   // SEND MESSAGE
   socket.on("send_message", async (data) => {
-    try {
-      const { ChatId, SenderId, Text } = data;
+  try {
+    const { ChatId, SenderId, Text } = data;
+    if (!ChatId || !SenderId || !Text) return;
 
-      if (!ChatId || !SenderId || !Text) return;
+    const chat = await require("./models/Chat").findOne({ ChatId });
+    if (!chat) return;
 
-      const newMessage = new Message({
-        ChatId,
-        SenderId,
-        Text,
-      });
+    const newMessage = new Message({
+      ChatId,
+      SenderId,
+      Text,
+      Status: "sent",
+    });
 
-      await newMessage.save();
+    await newMessage.save();
 
-      const user = await User.findOne({ UserId: SenderId });
+    // Update chat last message
+    chat.LastMessage = Text;
+    chat.LastMessageTime = newMessage.CreatedAt;
+    chat.LastMessageSender = SenderId;
 
-      const messageToSend = {
-        MessageId: newMessage.MessageId,
-        ChatId,
-        SenderId,
-        SenderName: user ? user.Handle : "User",
-        Text,
-        CreatedAt: newMessage.CreatedAt,
-      };
+    // Update unread counts
+    chat.Members.forEach(memberId => {
+      if (memberId !== SenderId) {
+        const currentUnread = chat.UnreadCounts.get(memberId) || 0;
+        chat.UnreadCounts.set(memberId, currentUnread + 1);
+      }
+    });
 
-      io.to(ChatId).emit("receive_message", messageToSend);
+    await chat.save();
 
-    } catch (error) {
-      console.error("❌ send_message error:", error);
-    }
-  });
+    const user = await User.findOne({ UserId: SenderId });
+
+    const messageToSend = {
+      MessageId: newMessage.MessageId,
+      ChatId,
+      SenderId,
+      SenderName: user ? user.Handle : "User",
+      Text,
+      CreatedAt: newMessage.CreatedAt,
+      Status: "sent",
+    };
+
+    io.to(ChatId).emit("receive_message", messageToSend);
+
+  } catch (error) {
+    console.error("❌ send_message error:", error);
+  }
+});
 
   // DISCONNECT
   socket.on("disconnect", () => {

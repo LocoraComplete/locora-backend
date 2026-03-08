@@ -152,6 +152,7 @@ app.use("/api/places", require("./routes/placeRoutes"));
 app.use("/api/events", require("./routes/eventRoutes"));
 app.use("/api/food", require("./routes/foodRoutes"));
 app.use("/api/posts", require("./routes/postRoutes"));
+app.use("/api/support", require("./routes/supportRoutes"));
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, "0.0.0.0", () => {

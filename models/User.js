@@ -1,11 +1,10 @@
 const mongoose = require("mongoose");
-const getNextSequence = require("../utils/generateId");
 
 const userSchema = new mongoose.Schema({
   UserId: { type: String, unique: true },
   Name: { type: String, required: true, trim: true, maxlength: 50 },
   Bio: { type: String, default: "", trim: true, maxlength: 200 },
-  profilePic: { type: String, default: "" }, // ✅ change here
+  profilePic: { type: String, default: "" },
   Handle: { type: String, unique: true, trim: true },
   Email: { type: String, required: true, unique: true, lowercase: true, trim: true, maxlength: 50 },
   Password: { type: String, required: true, minlength: 6 },
@@ -13,8 +12,8 @@ const userSchema = new mongoose.Schema({
   Pronouns: { type: String, trim: true, maxlength: 30, default: "" },
   Gender: { type: String, enum: ["Male", "Female", "Other"], default: "Other" },
   emergencyContacts: {
-    primary: { type: String, match: [/^\+91\d{10}$/, "Invalid primary emergency number"], required: false },
-    secondary: { type: String, match: [/^\+91\d{10}$/, "Invalid secondary emergency number"], required: false },
+    primary: { type: String, required: true, match: [/^\+91\d{10}$/, "Invalid primary emergency number"], maxlength: 13 },
+    secondary: { type: String, required: false, match: [/^\+91\d{10}$/, "Invalid secondary emergency number"], maxlength: 13 },
   },
 }, { timestamps: true });
 

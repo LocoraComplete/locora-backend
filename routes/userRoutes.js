@@ -10,35 +10,36 @@ const path = require("path");
 // ======================
 router.post("/register", async (req, res) => {
   try {
-    let { Name, Email, Password, Phone, Gender, emergencyContacts } = req.body;
+    let { Name, Email, Password, Phone, Gender, emergencyContact } = req.body;
 
     Name = Name?.trim();
     Email = Email?.trim().toLowerCase();
 
-    if (!Name || !Email || !Password || !Phone) {
-      return res.status(400).json({ message: "Name, Email, Password, and Phone are required" });
+    // Basic validations
+    if (!Name || !Email || !Password || !Phone || !emergencyContact) {
+      return res.status(400).json({ message: "Name, Email, Password, Phone, and Primary Emergency Contact are required" });
     }
 
+    // Email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(Email)) return res.status(400).json({ message: "Invalid email format" });
 
+    // Phone format
     const phoneDigits = Phone.replace(/\D/g, "");
     if (phoneDigits.length !== 10) return res.status(400).json({ message: "Phone must be 10 digits" });
     Phone = "+91" + phoneDigits;
 
-    if (!emergencyContacts?.primary || emergencyContacts.primary.replace(/\D/g, "").length !== 10) {
+    // Emergency contact format
+    const emergencyDigits = emergencyContact.replace(/\D/g, "");
+    if (emergencyDigits.length !== 10) {
       return res.status(400).json({ message: "Primary emergency contact must be 10 digits" });
     }
-    if (emergencyContacts.secondary && emergencyContacts.secondary.replace(/\D/g, "").length !== 10) {
-      return res.status(400).json({ message: "Secondary emergency contact must be 10 digits" });
-    }
+    const formattedEmergency = "+91" + emergencyDigits;
 
-    const formatContact = (num) => "+91" + num.replace(/\D/g, "");
-    const primaryContact = formatContact(emergencyContacts.primary);
-    const secondaryContact = emergencyContacts.secondary ? formatContact(emergencyContacts.secondary) : "";
-
+    // Hash password
     const hashedPassword = await bcrypt.hash(Password, 10);
 
+    // Create new user
     const newUser = new User({
       UserId: "U" + Date.now(),
       Name,
@@ -46,7 +47,7 @@ router.post("/register", async (req, res) => {
       Password: hashedPassword,
       Phone,
       Gender,
-      emergencyContacts: { primary: primaryContact, secondary: secondaryContact },
+      emergencyContact: formattedEmergency,
       profileCompleted: false,
     });
 
@@ -77,17 +78,17 @@ router.post("/login", async (req, res) => {
     if (!isMatch) return res.status(401).json({ message: "Invalid password" });
 
     return res.status(200).json({
-  message: "Login successful",
-  UserId: user.UserId,
-  Name: user.Name,
-  Handle: user.Handle,
-  Pronouns: user.Pronouns,
-  Bio: user.Bio,
-  profilePic: user.profilePic
-    ? `${req.protocol}://${req.get("host")}${user.profilePic}`
-    : null,
-  emergencyContacts: user.emergencyContact || { primary: "", secondary: "" },
-});
+      message: "Login successful",
+      UserId: user.UserId,
+      Name: user.Name,
+      Handle: user.Handle,
+      Pronouns: user.Pronouns,
+      Bio: user.Bio,
+      profilePic: user.profilePic
+        ? `${req.protocol}://${req.get("host")}${user.profilePic}`
+        : null,
+      emergencyContact: user.emergencyContact || "",
+    });
 
   } catch (error) {
     console.error("LOGIN ERROR:", error);
@@ -171,7 +172,7 @@ router.put("/update-profile/:UserId", upload.single("profilePic"), async (req, r
       Pronouns: updatedUser.Pronouns,
       Bio: updatedUser.Bio,
       profilePic: updatedUser.profilePic ? `${req.protocol}://${req.get("host")}${updatedUser.profilePic}` : null,
-      emergencyContacts: updatedUser.emergencyContacts || { primary: "", secondary: "" },
+      emergencyContact: updatedUser.emergencyContact || "",
     });
   } catch (error) {
     console.error("UPDATE ERROR:", error);
@@ -201,14 +202,8 @@ router.post("/check-password", async (req, res) => {
 // ======================
 // UPDATE PASSWORD
 // ======================
-// Allow POST as fallback for update-password
+// UPDATE PASSWORD (POST version)
 router.post("/update-password", async (req, res) => {
-  // Just call the PUT handler logic
-  req.method = "PUT";
-  return router.handle(req, res);
-});
-
-router.put("/update-password", async (req, res) => {
   try {
     const { userId, oldPassword, newPassword } = req.body;
     if (!userId || !oldPassword || !newPassword)
@@ -258,7 +253,7 @@ router.put("/:UserId/update-emergency", async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    user.emergencyContacts.primary = emergencyContact;
+    user.emergencyContact = emergencyContact;
 
     await user.save();
 

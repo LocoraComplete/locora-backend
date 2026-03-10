@@ -98,18 +98,20 @@ router.get("/feed", async (req, res) => {
           ? post.likes.some(id => id.toString() === currentUserId.toString())
           : false;
 
-        let username = "Deleted User";
+        let handle = "Deleted User";
         let profilePic = "";
 
         if (user && !user.isDeleted) {
-          username = user.Handle || "user";
-          profilePic = user.profilePic || "";
+          handle = user.Handle || "user";
+          profilePic = user.profilePic
+            ? `${baseUrl}${user.profilePic}`
+            : "";
         }
 
         return {
           PostId: post.PostId,
           UserId: post.UserId,
-          username,
+          handle: user ? user.Handle : "Deleted User",
           profilePic,
           ImageUrl: `${baseUrl}/api/posts/image/${post.ImageId}`,
           likes: post.likes.length,

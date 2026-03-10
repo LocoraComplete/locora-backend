@@ -80,7 +80,8 @@ router.post("/join", async (req, res) => {
     chat.Members.push(UserId);
     await chat.save();
 
-    const systemText = `${user.Handle} joined the group`;
+    const username = user?.isDeleted ? "Deleted User" : user?.Handle;
+    const systemText = `${username} joined the group`;
 
     const systemMessage = new Message({
       ChatId,
@@ -131,7 +132,8 @@ router.delete("/leave/:chatId", async (req, res) => {
 
     const user = await User.findOne({ UserId: userId });
 
-    const systemText = `${user.Handle} left the group`;
+    const username = user?.isDeleted ? "Deleted User" : user?.Handle;
+    const systemText = `${username} left the group`;
 
     const systemMessage = new Message({
       ChatId: chatId,
@@ -307,6 +309,41 @@ router.post("/private", async (req, res) => {
 
   } catch (err) {
     console.error("Private chat error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ================= DELETE PRIVATE CHAT =================
+router.delete("/deletePrivate/:chatId", async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "UserId required" });
+    }
+
+    const chat = await Chat.findOne({ ChatId: chatId });
+
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
+
+    if (chat.ChatType !== "private") {
+      return res.status(400).json({ message: "Not a private chat" });
+    }
+
+    if (!chat.Members.includes(userId)) {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    await Message.deleteMany({ ChatId: chatId });
+    await Chat.deleteOne({ ChatId: chatId });
+
+    res.json({ message: "Private chat deleted" });
+
+  } catch (err) {
+    console.error("Delete private chat error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });

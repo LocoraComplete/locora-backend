@@ -11,10 +11,13 @@ const userSchema = new mongoose.Schema({
   Phone: { type: String, unique: true, sparse: true, trim: true, maxlength: 13 },
   Pronouns: { type: String, trim: true, maxlength: 30, default: "" },
   Gender: { type: String, enum: ["Male", "Female", "Other"], default: "Other" },
-  emergencyContacts: {
-    primary: { type: String, required: true, match: [/^\+91\d{10}$/, "Invalid primary emergency number"], maxlength: 13 },
-    secondary: { type: String, required: false, match: [/^\+91\d{10}$/, "Invalid secondary emergency number"], maxlength: 13 },
+
+  emergencyContact: {
+    type: String,
+    match: [/^\+91\d{10}$/, "Invalid emergency number"],
+    default: "",
   },
+  isDeleted: { type: Boolean, default: false }
 }, { timestamps: true });
 
 const User = mongoose.model("User", userSchema);

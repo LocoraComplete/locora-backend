@@ -3,12 +3,7 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const upload = require("../middlewares/upload");
-
-// -------------------------
-// IMPORTANT: Ensure these middlewares are applied globally in app.js
-// app.use(express.json());
-// app.use(express.urlencoded({ extended: true }));
-// -------------------------
+const path = require("path");
 
 // ======================
 // REGISTER
@@ -72,21 +67,28 @@ router.post("/login", async (req, res) => {
     if (!Email || !Password) return res.status(400).json({ message: "Email and Password are required" });
 
     const user = await User.findOne({ Email });
+    if (user && user.isDeleted) {
+      return res.status(403).json({ message: "This account no longer exists" });
+    }
+    
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const isMatch = await bcrypt.compare(Password, user.Password);
     if (!isMatch) return res.status(401).json({ message: "Invalid password" });
 
-    res.status(200).json({
-      message: "Login successful",
-      UserId: user.UserId,
-      Name: user.Name,
-      Handle: user.Handle,
-      Pronouns: user.Pronouns,
-      Bio: user.Bio,
-      profilePic: user.profilePic ? `${req.protocol}://${req.get("host")}${user.profilePic}` : null,
-      emergencyContacts: user.emergencyContacts || { primary: "", secondary: "" },
-    });
+    return res.status(200).json({
+  message: "Login successful",
+  UserId: user.UserId,
+  Name: user.Name,
+  Handle: user.Handle,
+  Pronouns: user.Pronouns,
+  Bio: user.Bio,
+  profilePic: user.profilePic
+    ? `${req.protocol}://${req.get("host")}${user.profilePic}`
+    : null,
+  emergencyContacts: user.emergencyContact || { primary: "", secondary: "" },
+});
+
   } catch (error) {
     console.error("LOGIN ERROR:", error);
     res.status(500).json({ message: "Server error" });
@@ -99,9 +101,24 @@ router.post("/login", async (req, res) => {
 router.delete("/delete/:UserId", async (req, res) => {
   try {
     const { UserId } = req.params;
-    const deletedUser = await User.findOneAndDelete({ UserId });
-    if (!deletedUser) return res.status(404).json({ message: "User not found" });
+
+    const user = await User.findOne({ UserId });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.isDeleted = true;
+    user.Name = "Deleted User";
+    user.Handle = `deleted_${Date.now()}`;
+    user.profilePic = "";
+    user.Bio = "";
+    user.Pronouns = "";
+
+    await user.save();
+
     res.status(200).json({ message: "Account deleted successfully" });
+
   } catch (error) {
     console.error("DELETE ERROR:", error);
     res.status(500).json({ message: "Server error" });
@@ -192,7 +209,6 @@ router.post("/update-password", async (req, res) => {
 });
 
 router.put("/update-password", async (req, res) => {
-  console.log("🟡 /check-password called", req.body);
   try {
     const { userId, oldPassword, newPassword } = req.body;
     if (!userId || !oldPassword || !newPassword)
@@ -220,8 +236,43 @@ router.put("/update-password", async (req, res) => {
   }
 });
 
+
 // ======================
-// GET USER BY ID
+// UPDATE EMERGENCY CONTACT
+// ======================
+router.put("/:UserId/update-emergency", async (req, res) => {
+  try {
+    const { UserId } = req.params;
+    const { emergencyContact } = req.body;
+
+    if (!emergencyContact || !/^\+91\d{10}$/.test(emergencyContact)) {
+      return res.status(400).json({
+        success: false,
+        message: "Emergency contact must be +91 followed by 10 digits",
+      });
+    }
+
+    const user = await User.findOne({ UserId });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    user.emergencyContacts.primary = emergencyContact;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Emergency contact updated successfully",
+    });
+
+  } catch (error) {
+    console.error("EMERGENCY CONTACT UPDATE ERROR:", error);
+    res.status(500).json({ success: false });
+  }
+});
+
 // ======================
 router.get("/:UserId", async (req, res) => {
   try {
@@ -234,7 +285,9 @@ router.get("/:UserId", async (req, res) => {
       Handle: user.Handle,
       Bio: user.Bio,
       Pronouns: user.Pronouns,
-      profilePic: user.profilePic ? `${req.protocol}://${req.get("host")}${user.profilePic}` : null,
+      profilePic: user.profilePic
+        ? `${req.protocol}://${req.get("host")}${user.profilePic}`
+        : null,
     });
   } catch (error) {
     console.error("GET USER ERROR:", error);

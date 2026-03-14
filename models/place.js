@@ -6,23 +6,29 @@ const PlaceSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+
   Name: {
-    type: String,
-    required: true
+    en: { type: String, required: true },
+    hi: { type: String, required: true }
   },
+
   Location: {
-    type: String,
-    required: true
+    en: { type: String, required: true },
+    hi: { type: String, required: true }
   },
+
   Type: {
-    type: String,
-    required: true
+    en: { type: String, required: true },
+    hi: { type: String, required: true }
   },
+
   Description: {
-    type: String
+    en: { type: String },
+    hi: { type: String }
   },
+
   ImageURL: {
-  type: String
+    type: String
   }
 
 });

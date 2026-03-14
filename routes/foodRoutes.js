@@ -6,8 +6,23 @@ const Place = require("../models/place");
 // GET ALL FOOD
 router.get("/", async (req, res) => {
   try {
+
+    const lang = req.query.lang || "en";
+
     const food = await Food.find();
-    res.json(food);
+
+    const formatted = food.map(item => ({
+      FoodId: item.FoodId,
+      PlaceId: item.PlaceId,
+      Name: item.Name?.[lang] || item.Name?.en,
+      Type: item.Type,
+      PriceRange: item.PriceRange,
+      Description: item.Description?.[lang] || item.Description?.en,
+      ImageURL: item.ImageURL
+    }));
+
+    res.json(formatted);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -18,9 +33,9 @@ router.post("/create", async (req, res) => {
   try {
     const { PlaceId, Name, Type, PriceRange, Description, ImageURL } = req.body;
 
-    if (!PlaceId || !Name || !Type || !ImageURL) {
+    if (!PlaceId || !Name?.en || !Name?.hi || !Type || !ImageURL) {
       return res.status(400).json({
-        message: "PlaceId, Name, Type and ImageURL are required"
+        message: "PlaceId, Name (both languages), Type and ImageURL are required"
       });
     }
 

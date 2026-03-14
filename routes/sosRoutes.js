@@ -6,12 +6,14 @@ const User = require("../models/User");
 // Create SOS alert
 router.post("/raise-alert", async (req, res) => {
   try {
+    console.log("Incoming SOS:", req.body);
     const { UserId, Latitude, Longitude } = req.body;
 
     // Validate user exists
     const user = await User.findOne({ UserId });
 
     if (!user) {
+      console.log("User not found:", UserId);
       return res.status(400).json({
         message: "Invalid UserId — User does not exist"
       });
@@ -24,6 +26,7 @@ router.post("/raise-alert", async (req, res) => {
     });
 
     await newAlert.save();
+    console.log("SOS SAVED:", newAlert);
 
     res.status(201).json({
       message: "SOS Alert Raised Successfully",

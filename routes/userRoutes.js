@@ -4,6 +4,12 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const upload = require("../middlewares/upload");
 const path = require("path");
+const fs = require("fs");
+
+const Post = require("../models/Post");
+const Chat = require("../models/Chat");
+const Message = require("../models/Message");
+
 
 // ======================
 // REGISTER
@@ -15,31 +21,29 @@ router.post("/register", async (req, res) => {
     Name = Name?.trim();
     Email = Email?.trim().toLowerCase();
 
-    // Basic validations
     if (!Name || !Email || !Password || !Phone || !emergencyContact) {
       return res.status(400).json({ message: "Name, Email, Password, Phone, and Primary Emergency Contact are required" });
     }
 
-    // Email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(Email)) return res.status(400).json({ message: "Invalid email format" });
+    if (!emailRegex.test(Email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
 
-    // Phone format
     const phoneDigits = Phone.replace(/\D/g, "");
-    if (phoneDigits.length !== 10) return res.status(400).json({ message: "Phone must be 10 digits" });
+    if (phoneDigits.length !== 10) {
+      return res.status(400).json({ message: "Phone must be 10 digits" });
+    }
     Phone = "+91" + phoneDigits;
 
-    // Emergency contact format
     const emergencyDigits = emergencyContact.replace(/\D/g, "");
     if (emergencyDigits.length !== 10) {
       return res.status(400).json({ message: "Primary emergency contact must be 10 digits" });
     }
     const formattedEmergency = "+91" + emergencyDigits;
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(Password, 10);
 
-    // Create new user
     const newUser = new User({
       UserId: "U" + Date.now(),
       Name,
@@ -53,29 +57,41 @@ router.post("/register", async (req, res) => {
 
     await newUser.save();
     res.status(201).json({ message: "User created successfully" });
+
   } catch (error) {
     console.error("REGISTER ERROR:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
 
+
 // ======================
 // LOGIN
 // ======================
 router.post("/login", async (req, res) => {
   try {
+
     const { Email, Password } = req.body;
-    if (!Email || !Password) return res.status(400).json({ message: "Email and Password are required" });
+
+    if (!Email || !Password) {
+      return res.status(400).json({ message: "Email and Password are required" });
+    }
 
     const user = await User.findOne({ Email });
+
     if (user && user.isDeleted) {
       return res.status(403).json({ message: "This account no longer exists" });
     }
-    
-    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     const isMatch = await bcrypt.compare(Password, user.Password);
-    if (!isMatch) return res.status(401).json({ message: "Invalid password" });
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
 
     return res.status(200).json({
       message: "Login successful",
@@ -96,11 +112,14 @@ router.post("/login", async (req, res) => {
   }
 });
 
+
 // ======================
 // DELETE ACCOUNT
 // ======================
 router.delete("/delete/:UserId", async (req, res) => {
+
   try {
+
     const { UserId } = req.params;
 
     const user = await User.findOne({ UserId });
@@ -109,30 +128,96 @@ router.delete("/delete/:UserId", async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    user.isDeleted = true;
-    user.Name = "Deleted User";
-    user.Handle = `deleted_${Date.now()}`;
-    user.profilePic = "";
-    user.Bio = "";
-    user.Pronouns = "";
 
-    await user.save();
+    // ================= DELETE USER POSTS + IMAGES =================
+    const posts = await Post.find({ UserId });
 
-    res.status(200).json({ message: "Account deleted successfully" });
+    for (const post of posts) {
+
+      if (post.ImageId) {
+
+        const filePath = path.join(__dirname, "../uploads", post.ImageId);
+
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+
+      }
+
+    }
+
+    await Post.deleteMany({ UserId });
+
+
+    // ================= REMOVE USER LIKES =================
+    await Post.updateMany(
+      { likes: UserId },
+      { $pull: { likes: UserId } }
+    );
+
+
+    // ================= REMOVE USER COMMENTS =================
+    await Post.updateMany(
+      { "comments.UserId": UserId },
+      { $pull: { comments: { UserId } } }
+    );
+
+
+    // ================= DELETE USER MESSAGES =================
+    await Message.deleteMany({ SenderId: UserId });
+
+
+    // ================= HANDLE CHATS =================
+    const chats = await Chat.find({ Members: UserId });
+
+    for (const chat of chats) {
+
+      if (chat.ChatType === "private") {
+
+        await Message.deleteMany({ ChatId: chat.ChatId });
+        await Chat.deleteOne({ ChatId: chat.ChatId });
+
+      } else {
+
+        chat.Members = chat.Members.filter(id => id !== UserId);
+        await chat.save();
+
+      }
+
+    }
+
+
+    // ================= DELETE USER =================
+    await User.deleteOne({ UserId });
+
+
+    res.json({
+      message: "Account and all associated data permanently deleted"
+    });
 
   } catch (error) {
-    console.error("DELETE ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+
+    console.error("ACCOUNT DELETE ERROR:", error);
+
+    res.status(500).json({
+      message: "Server error"
+    });
+
   }
 });
+
 
 // ======================
 // UPLOAD PROFILE PIC
 // ======================
 router.post("/upload-profile/:UserId", upload.single("profilePic"), async (req, res) => {
   try {
+
     const { UserId } = req.params;
-    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
 
     const updatedUser = await User.findOneAndUpdate(
       { UserId },
@@ -144,25 +229,45 @@ router.post("/upload-profile/:UserId", upload.single("profilePic"), async (req, 
       message: "Profile picture updated",
       profilePic: `${req.protocol}://${req.get("host")}${updatedUser.profilePic}`,
     });
+
   } catch (error) {
+
     console.error("UPLOAD PROFILE ERROR:", error);
     res.status(500).json({ message: "Server error" });
+
   }
 });
+
 
 // ======================
 // UPDATE PROFILE
 // ======================
 router.put("/update-profile/:UserId", upload.single("profilePic"), async (req, res) => {
   try {
+
     const { UserId } = req.params;
     const { name, username, pronouns, bio } = req.body;
 
-    const updateData = { Name: name, Handle: username, Pronouns: pronouns, Bio: bio };
-    if (req.file) updateData.profilePic = `/uploads/${req.file.filename}`;
+    const updateData = {
+      Name: name,
+      Handle: username,
+      Pronouns: pronouns,
+      Bio: bio
+    };
 
-    const updatedUser = await User.findOneAndUpdate({ UserId }, { $set: updateData }, { new: true });
-    if (!updatedUser) return res.status(404).json({ message: "User not found" });
+    if (req.file) {
+      updateData.profilePic = `/uploads/${req.file.filename}`;
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { UserId },
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     res.status(200).json({
       message: "Profile updated successfully",
@@ -171,63 +276,104 @@ router.put("/update-profile/:UserId", upload.single("profilePic"), async (req, r
       Handle: updatedUser.Handle,
       Pronouns: updatedUser.Pronouns,
       Bio: updatedUser.Bio,
-      profilePic: updatedUser.profilePic ? `${req.protocol}://${req.get("host")}${updatedUser.profilePic}` : null,
+      profilePic: updatedUser.profilePic
+        ? `${req.protocol}://${req.get("host")}${updatedUser.profilePic}`
+        : null,
       emergencyContact: updatedUser.emergencyContact || "",
     });
+
   } catch (error) {
+
     console.error("UPDATE ERROR:", error);
     res.status(500).json({ message: "Server error" });
+
   }
 });
+
 
 // ======================
 // CHECK PASSWORD
 // ======================
 router.post("/check-password", async (req, res) => {
   try {
+
     const { userId, oldPassword } = req.body;
-    if (!userId || !oldPassword) return res.status(400).json({ valid: false, message: "userId and oldPassword required" });
+
+    if (!userId || !oldPassword) {
+      return res.status(400).json({ valid: false, message: "userId and oldPassword required" });
+    }
 
     const user = await User.findOne({ UserId: userId });
-    if (!user) return res.status(404).json({ valid: false, message: "User not found" });
+
+    if (!user) {
+      return res.status(404).json({ valid: false, message: "User not found" });
+    }
 
     const isMatch = await bcrypt.compare(oldPassword, user.Password);
-    res.status(200).json({ valid: isMatch, message: isMatch ? "Password correct" : "Old password incorrect" });
+
+    res.status(200).json({
+      valid: isMatch,
+      message: isMatch ? "Password correct" : "Old password incorrect"
+    });
+
   } catch (err) {
+
     console.error("CHECK PASSWORD ERROR:", err);
     res.status(500).json({ valid: false, message: "Server error" });
+
   }
 });
+
 
 // ======================
 // UPDATE PASSWORD
 // ======================
-// UPDATE PASSWORD (POST version)
 router.post("/update-password", async (req, res) => {
   try {
+
     const { userId, oldPassword, newPassword } = req.body;
-    if (!userId || !oldPassword || !newPassword)
+
+    if (!userId || !oldPassword || !newPassword) {
       return res.status(400).json({ success: false, message: "userId, oldPassword, newPassword required" });
+    }
 
-    if (oldPassword.length < 6 || newPassword.length < 6)
+    if (oldPassword.length < 6 || newPassword.length < 6) {
       return res.status(400).json({ success: false, message: "Passwords must be at least 6 chars" });
+    }
 
-    if (oldPassword === newPassword)
+    if (oldPassword === newPassword) {
       return res.status(400).json({ success: false, message: "New password cannot match old password" });
+    }
 
     const user = await User.findOne({ UserId: userId });
-    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
     const isMatch = await bcrypt.compare(oldPassword, user.Password);
-    if (!isMatch) return res.status(400).json({ success: false, message: "Old password incorrect" });
+
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Old password incorrect" });
+    }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await User.updateOne({ UserId: userId }, { $set: { Password: hashedPassword } });
 
-    res.status(200).json({ success: true, message: "Password updated successfully" });
+    await User.updateOne(
+      { UserId: userId },
+      { $set: { Password: hashedPassword } }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Password updated successfully"
+    });
+
   } catch (err) {
+
     console.error("UPDATE PASSWORD ERROR:", err);
     res.status(500).json({ success: false, message: "Server error" });
+
   }
 });
 
@@ -236,14 +382,16 @@ router.post("/update-password", async (req, res) => {
 // UPDATE EMERGENCY CONTACT
 // ======================
 router.put("/:UserId/update-emergency", async (req, res) => {
+
   try {
+
     const { UserId } = req.params;
     const { emergencyContact } = req.body;
 
     if (!emergencyContact || !/^\+91\d{10}$/.test(emergencyContact)) {
       return res.status(400).json({
         success: false,
-        message: "Emergency contact must be +91 followed by 10 digits",
+        message: "Emergency contact must be +91 followed by 10 digits"
       });
     }
 
@@ -259,20 +407,30 @@ router.put("/:UserId/update-emergency", async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Emergency contact updated successfully",
+      message: "Emergency contact updated successfully"
     });
 
   } catch (error) {
+
     console.error("EMERGENCY CONTACT UPDATE ERROR:", error);
     res.status(500).json({ success: false });
+
   }
 });
 
+
+// ======================
+// GET USER
 // ======================
 router.get("/:UserId", async (req, res) => {
+
   try {
+
     const user = await User.findOne({ UserId: req.params.UserId });
-    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     res.json({
       UserId: user.UserId,
@@ -284,10 +442,14 @@ router.get("/:UserId", async (req, res) => {
         ? `${req.protocol}://${req.get("host")}${user.profilePic}`
         : null,
     });
+
   } catch (error) {
+
     console.error("GET USER ERROR:", error);
     res.status(500).json({ message: "Server error" });
+
   }
 });
+
 
 module.exports = router;

@@ -10,9 +10,9 @@ router.post("/create", async (req, res) => {
   try {
     const { Name, Location, Type, Description, ImageURL } = req.body;
 
-    if (!Name || !Location || !Type) {
+    if (!Name?.en || !Name?.hi || !Location?.en || !Location?.hi || !Type?.en || !Type?.hi) {
       return res.status(400).json({
-        message: "Name, Location and Type are required",
+        message: "Name, Location and Type (both languages) are required",
       });
     }
 
@@ -47,8 +47,22 @@ router.post("/create", async (req, res) => {
  */
 router.get("/", async (req, res) => {
   try {
+
+    const lang = req.query.lang || "en";
+
     const places = await Place.find();
-    res.json(places);
+
+    const formatted = places.map(place => ({
+      PlaceId: place.PlaceId,
+      Name: place.Name?.[lang] || place.Name?.en,
+      Location: place.Location?.[lang] || place.Location?.en,
+      Type: place.Type?.[lang] || place.Type?.en,
+      Description: place.Description?.[lang] || place.Description?.en,
+      ImageURL: place.ImageURL
+    }));
+
+    res.json(formatted);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -59,9 +73,26 @@ router.get("/", async (req, res) => {
  */
 router.get("/:placeId", async (req, res) => {
   try {
+
+    const lang = req.query.lang || "en";
+
     const place = await Place.findOne({ PlaceId: req.params.placeId });
-    if (!place) return res.status(404).json({ message: "Not found" });
-    res.json(place);
+
+    if (!place) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    const formatted = {
+      PlaceId: place.PlaceId,
+      Name: place.Name?.[lang] || place.Name?.en,
+      Location: place.Location?.[lang] || place.Location?.en,
+      Type: place.Type?.[lang] || place.Type?.en,
+      Description: place.Description?.[lang] || place.Description?.en,
+      ImageURL: place.ImageURL
+    };
+
+    res.json(formatted);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

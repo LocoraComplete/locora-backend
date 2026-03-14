@@ -14,11 +14,32 @@ const GuideSchema = new mongoose.Schema({
     ref: "User"
   },
 
-  Location: {
-    type: String,
-    required: true,
-    maxlength: 50
+  Name: {
+    en: { type: String, required: true },
+    hi: { type: String, required: true }
   },
+
+  Location: {
+    en: { type: String, required: true },
+    hi: { type: String, required: true }
+  },
+
+  Languages: [
+    {
+      en: String,
+      hi: String
+    }
+  ],
+
+  Experience: {
+    type: String,
+    default: "0+"
+  },
+
+  Phone: String,
+  Email: String,
+
+  Photo: String,
 
   Rating: {
     type: Number,
@@ -29,7 +50,6 @@ const GuideSchema = new mongoose.Schema({
 
   Availability: {
     type: Boolean,
-    required: true,
     default: true
   }
 

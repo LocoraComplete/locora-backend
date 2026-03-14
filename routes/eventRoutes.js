@@ -8,8 +8,22 @@ const Place = require("../models/place");
  */
 router.get("/", async (req, res) => {
   try {
+
+    const lang = req.query.lang || "en";
+
     const events = await Event.find();
-    res.status(200).json(events);
+
+    const formatted = events.map(event => ({
+      EventId: event.EventId,
+      PlaceId: event.PlaceId,
+      Name: event.Name?.[lang] || event.Name?.en,
+      Date: event.Date,
+      Description: event.Description?.[lang] || event.Description?.en,
+      ImageURL: event.ImageURL
+    }));
+
+    res.status(200).json(formatted);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -20,9 +34,9 @@ router.post("/create", async (req, res) => {
   try {
     const { PlaceId, Name, Date, Description, ImageURL } = req.body;
 
-    if (!PlaceId || !Name || !Date) {
+    if (!PlaceId || !Name?.en || !Name?.hi || !Date) {
       return res.status(400).json({
-        message: "PlaceId, Name and Date are required",
+        message: "PlaceId, Name (both languages) and Date are required",
       });
     }
 

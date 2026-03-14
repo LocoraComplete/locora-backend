@@ -111,7 +111,7 @@ router.get("/feed", async (req, res) => {
         return {
           PostId: post.PostId,
           UserId: post.UserId,
-          handle: user ? user.Handle : "Deleted User",
+          handle,
           profilePic,
           ImageUrl: `${baseUrl}/api/posts/image/${post.ImageId}`,
           likes: post.likes.length,
@@ -206,33 +206,67 @@ router.get("/comments/:PostId", async (req, res) => {
       UserId: { $in: post.comments.map(c => c.UserId) }
     });
 
+    const baseUrl =
+      process.env.BASE_URL || `http://${req.headers.host}`;
+
     const formattedComments = post.comments
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
       .map(c => {
 
         const user = users.find(u => u.UserId === c.UserId);
 
-        let username = "Deleted User";
+        let handle = "Deleted User";
         let profilePic = "";
 
         if (user && !user.isDeleted) {
-          username = user.Handle || "user";
-          profilePic = user.profilePic || "";
+          handle = user.Handle || "user";
+          profilePic = user.profilePic
+            ? `${baseUrl}${user.profilePic}`
+            : "";
         }
 
         return {
           UserId: c.UserId,
-          username,
+          handle,
           profilePic,
           text: c.text,
           createdAt: c.createdAt
         };
       });
-
     res.json(formattedComments);
 
   } catch (err) {
     console.log("GET COMMENTS ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ================= GET SINGLE POST =================
+router.get("/:PostId", async (req, res) => {
+  try {
+
+    const { PostId } = req.params;
+    const currentUserId = req.query.UserId;
+
+    const post = await Post.findOne({ PostId });
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    const liked = currentUserId
+      ? post.likes.some(id => id.toString() === currentUserId.toString())
+      : false;
+
+    res.json({
+      PostId: post.PostId,
+      likes: post.likes.length,
+      likedByUser: liked,
+      commentsCount: post.comments.length
+    });
+
+  } catch (err) {
+    console.log("GET POST ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 });

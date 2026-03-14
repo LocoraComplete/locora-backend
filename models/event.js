@@ -14,9 +14,8 @@ const EventSchema = new mongoose.Schema({
   },
 
   Name: {
-    type: String,
-    required: true,
-    maxlength: 50
+    en: { type: String, required: true, maxlength: 50 },
+    hi: { type: String, required: true, maxlength: 50 }
   },
 
   Date: {
@@ -25,10 +24,11 @@ const EventSchema = new mongoose.Schema({
   },
 
   Description: {
-    type: String
+    en: { type: String },
+    hi: { type: String }
   },
 
-   ImageURL: {
+  ImageURL: {
     type: String,
     required: true
   }

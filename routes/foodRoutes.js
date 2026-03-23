@@ -2,11 +2,11 @@ const express = require("express");
 const router = express.Router();
 const Food = require("../models/food");
 const Place = require("../models/place");
+const getNextSequence = require("../utils/generateId"); // ✅ IMPORTANT
 
 // GET ALL FOOD
 router.get("/", async (req, res) => {
   try {
-
     const lang = req.query.lang || "en";
 
     const food = await Food.find();
@@ -33,12 +33,14 @@ router.post("/create", async (req, res) => {
   try {
     const { PlaceId, Name, Type, PriceRange, Description, ImageURL } = req.body;
 
+    //  VALIDATION
     if (!PlaceId || !Name?.en || !Name?.hi || !Type || !ImageURL) {
       return res.status(400).json({
         message: "PlaceId, Name (both languages), Type and ImageURL are required"
       });
     }
 
+    //  CHECK PLACE EXISTS
     const placeExists = await Place.findOne({ PlaceId });
     if (!placeExists) {
       return res.status(404).json({
@@ -46,17 +48,8 @@ router.post("/create", async (req, res) => {
       });
     }
 
-    // AUTO FOOD ID
-    const lastFood = await Food
-      .findOne({ FoodId: { $regex: /^FD\d+$/ } })
-      .sort({ FoodId: -1 });
-
-    let newFoodId = "FD001";
-
-    if (lastFood?.FoodId) {
-      const lastNum = parseInt(lastFood.FoodId.slice(2), 10);
-      if (!isNaN(lastNum)) newFoodId = `FD${lastNum + 1}`;
-    }
+    //  USE COUNTER 
+    const newFoodId = await getNextSequence("FoodId", "FD");
 
     const newFood = new Food({
       FoodId: newFoodId,

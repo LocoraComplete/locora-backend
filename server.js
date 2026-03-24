@@ -1,6 +1,7 @@
+const dotenv = require("dotenv");
 const express = require("express");
 const cors = require("cors");
-const dotenv = require("dotenv");
+
 const http = require("http");
 const { Server } = require("socket.io");
 const { connectDB } = require("./config/db");
@@ -127,6 +128,7 @@ app.use("/api/events", require("./routes/eventRoutes"));
 app.use("/api/food", require("./routes/foodRoutes"));
 app.use("/api/posts", require("./routes/postRoutes"));
 app.use("/api/support", require("./routes/supportRoutes"));
+
 
 // ------------------ START SERVER ------------------
 const PORT = process.env.PORT || 5000;

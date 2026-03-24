@@ -8,7 +8,7 @@ router.post("/create", async (req, res) => {
   try {
 
     const {
-      UserId,
+      PlaceId,
       Name,
       Location,
       Languages,
@@ -19,22 +19,12 @@ router.post("/create", async (req, res) => {
       Availability
     } = req.body;
 
-    const user = await User.findOne({ UserId });
-
-    if (!user) {
-      return res.status(404).json({ message: "UserId does not exist" });
-    }
-
-    const existingGuide = await Guide.findOne({ UserId });
-
-    if (existingGuide) {
-      return res.status(400).json({
-        message: "This user is already registered as a guide"
-      });
+    if (!PlaceId) {
+      return res.status(400).json({ message: "PlaceId required" });
     }
 
     const newGuide = new Guide({
-      UserId,
+      PlaceId,
       Name,
       Location,
       Languages,
@@ -64,12 +54,19 @@ router.post("/create", async (req, res) => {
 
 // GET ALL GUIDES
 router.get("/all", async (req, res) => {
-
   try {
 
-    const { lang = "en" } = req.query;
+    const { lang = "en", PlaceId } = req.query;
 
-    const guides = await Guide.find({ Availability: true });
+    const filter = {
+      Availability: true
+    };
+
+    if (PlaceId) {
+      filter.PlaceId = PlaceId;
+    }
+
+    const guides = await Guide.find(filter);
 
     const formatted = guides.map(g => ({
       id: g.GuideId,
@@ -86,14 +83,12 @@ router.get("/all", async (req, res) => {
     res.json(formatted);
 
   } catch (error) {
-
     console.error("GUIDE FETCH ERROR:", error);
 
     res.status(500).json({
       message: "Server error"
     });
   }
-
 });
 
 module.exports = router;

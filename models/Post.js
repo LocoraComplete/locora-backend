@@ -10,11 +10,12 @@ const postSchema = new mongoose.Schema(
 {
   PostId: { type: String, unique: true },
   UserId: { type: String, required: true },
-  ImageId: { type: String, required: true },
+
+  ImageIds: [{ type: String, required: true }], 
+
   Caption: { type: String, trim: true, maxlength: 300 },
 
-  // NEW
-  likes: [{ type: String }],   // stores UserId
+  likes: [{ type: String }],
   comments: [commentSchema]
 },
 { timestamps: true }

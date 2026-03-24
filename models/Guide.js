@@ -8,10 +8,10 @@ const GuideSchema = new mongoose.Schema({
     unique: true,
   },
 
-  UserId: {
+  PlaceId: {
     type: String,
     required: true,
-    ref: "User"
+    ref: "Place"
   },
 
   Name: {

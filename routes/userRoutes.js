@@ -10,202 +10,81 @@ const Post = require("../models/Post");
 const Chat = require("../models/Chat");
 const Message = require("../models/Message");
 
-const sendEmail = require("../sendEmail"); // adjust path
-const pendingUsers = new Map();
+
 // ======================
 // REGISTER
 // ======================
 router.post("/register", async (req, res) => {
-  console.log("REGISTER ROUTE HIT");
-  console.log("BODY:", req.body);
   try {
-
     let { Name, Email, Password, Phone, Gender, emergencyContact } = req.body;
 
     Name = Name?.trim();
     Email = Email?.trim().toLowerCase();
 
     if (!Name || !Email || !Password || !Phone || !emergencyContact) {
-      return res.status(400).json({ message: "All fields required" });
+      return res.status(400).json({ message: "Name, Email, Password, Phone, and Primary Emergency Contact are required" });
     }
 
-    const existingUser = await User.findOne({ Email });
-
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(Email)) {
+      return res.status(400).json({ message: "Invalid email format" });
     }
+
+    const phoneDigits = Phone.replace(/\D/g, "");
+    if (phoneDigits.length !== 10) {
+      return res.status(400).json({ message: "Phone must be 10 digits" });
+    }
+    Phone = "+91" + phoneDigits;
+
+    const emergencyDigits = emergencyContact.replace(/\D/g, "");
+    if (emergencyDigits.length !== 10) {
+      return res.status(400).json({ message: "Primary emergency contact must be 10 digits" });
+    }
+    const formattedEmergency = "+91" + emergencyDigits;
 
     const hashedPassword = await bcrypt.hash(Password, 10);
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
     const newUser = new User({
       UserId: "U" + Date.now(),
       Name,
       Email,
       Password: hashedPassword,
-      Phone: "+91" + Phone.replace(/\D/g, ""),
+      Phone,
       Gender,
-      emergencyContact: "+91" + emergencyContact.replace(/\D/g, ""),
-      isVerified: false,
-      emailOTP: otp,
-      otpExpires,
-    });
-
-    //await newUser.save();
-    // store user temporarily
-pendingUsers.set(Email, {
-  Name,
-  Email,
-  Password: hashedPassword,
-  Phone: "+91" + Phone.replace(/\D/g, ""),
-  Gender,
-  emergencyContact: "+91" + emergencyContact.replace(/\D/g, ""),
-  otp,
-  otpExpires
-});
-    console.log("Sending OTP email to:", Email);
-
-    await sendEmail(
-      Email,
-      "LOCORA Email Verification",
-      `<h2>LOCORA Email Verification</h2>
-       <p>Your verification code is:</p>
-       <h1 style="letter-spacing:5px">${otp}</h1>
-       <p>This code expires in 10 minutes.</p>
-       <p>If you did not request this, ignore this email.</p>`
-    );
-
-    console.log("OTP email sent successfully to", Email);
-
-    return res.status(201).json({
-      message: "OTP sent. Verify your email."
-    });
-
-  } catch (emailError) {
-      console.log("❌ EMAIL FAILED BUT CONTINUING:", emailError);
-
-      return res.status(500).json({
-        message: "Failed to send OTP email. Try again later.",
-      });
-    }
-});
-// ======================
-// VERIFY EMAIL
-// ======================
-router.post("/verify-email", async (req, res) => {
-  try {
-
-    const { Email, otp } = req.body;
-
-    const pendingUser = pendingUsers.get(Email.toLowerCase());
-
-    if (!pendingUser) {
-      return res.status(400).json({ message: "No signup request found" });
-    }
-
-    if (pendingUser.otp !== otp) {
-      return res.status(400).json({ message: "Invalid OTP" });
-    }
-
-    if (pendingUser.otpExpires < new Date()) {
-      return res.status(400).json({ message: "OTP expired" });
-    }
-
-    // CREATE USER AFTER VERIFICATION
-    const newUser = new User({
-      UserId: "U" + Date.now(),
-      Name: pendingUser.Name,
-      Email: pendingUser.Email,
-      Password: pendingUser.Password,
-      Phone: pendingUser.Phone,
-      Gender: pendingUser.Gender,
-      emergencyContact: pendingUser.emergencyContact,
-      isVerified: true
+      emergencyContact: formattedEmergency,
+      profileCompleted: false,
     });
 
     await newUser.save();
-
-    // remove temporary data
-    pendingUsers.delete(Email.toLowerCase());
-
-    res.json({ message: "Email verified and account created" });
+    res.status(201).json({ message: "User created successfully" });
 
   } catch (error) {
-
-    console.error("VERIFY EMAIL ERROR:", error);
-
-    res.status(500).json({ message: "Server error" });
-
-  }
-});
-
-// ======================
-// RESEND OTP
-// ======================
-router.post("/resend-otp", async (req, res) => {
-  try {
-    const { Email } = req.body;
-    const user = await User.findOne({ Email: Email.toLowerCase() });
-
-    if (!user) return res.status(404).json({ message: "User not found" });
-    if (user.isVerified) return res.status(400).json({ message: "Email already verified" });
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
-
-    user.emailOTP = otp;
-    user.otpExpires = otpExpires;
-    await user.save();
-
-    await sendEmail(
-      Email,
-      "LOCORA OTP Resent",
-      `<h2>Your new OTP is:</h2><h1>${otp}</h1><p>Expires in 10 minutes.</p>`
-    );
-
-    res.json({ message: "OTP resent successfully" });
-  } catch (err) {
-    console.error("RESEND OTP ERROR:", err);
+    console.error("REGISTER ERROR:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
-
 
 
 // ======================
 // LOGIN
 // ======================
 router.post("/login", async (req, res) => {
-
   try {
 
     const { Email, Password } = req.body;
 
     if (!Email || !Password) {
-      return res.status(400).json({
-        message: "Email and Password are required"
-      });
+      return res.status(400).json({ message: "Email and Password are required" });
     }
 
     const user = await User.findOne({ Email });
 
+    if (user && user.isDeleted) {
+      return res.status(403).json({ message: "This account no longer exists" });
+    }
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
-    }
-
-    if (!user.isVerified) {
-      return res.status(403).json({
-        message: "Please verify your email before logging in"
-      });
-    }
-
-    if (user.isDeleted) {
-      return res.status(403).json({
-        message: "This account no longer exists"
-      });
     }
 
     const isMatch = await bcrypt.compare(Password, user.Password);
@@ -228,13 +107,11 @@ router.post("/login", async (req, res) => {
     });
 
   } catch (error) {
-
     console.error("LOGIN ERROR:", error);
     res.status(500).json({ message: "Server error" });
-
   }
-
 });
+
 
 // ======================
 // DELETE ACCOUNT
@@ -309,7 +186,8 @@ router.delete("/delete/:UserId", async (req, res) => {
 
     }
 
- // ================= DELETE USER =================
+
+    // ================= DELETE USER =================
     await User.deleteOne({ UserId });
 
 
@@ -411,6 +289,8 @@ router.put("/update-profile/:UserId", upload.single("profilePic"), async (req, r
 
   }
 });
+
+
 // ======================
 // CHECK PASSWORD
 // ======================
@@ -537,6 +417,8 @@ router.put("/:UserId/update-emergency", async (req, res) => {
 
   }
 });
+
+
 // ======================
 // GET USER
 // ======================

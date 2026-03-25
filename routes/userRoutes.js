@@ -84,15 +84,13 @@ pendingUsers.set(Email, {
       message: "OTP sent. Verify your email."
     });
 
-  } catch (error) {
+  } catch (emailError) {
+      console.log("❌ EMAIL FAILED BUT CONTINUING:", emailError);
 
-    console.error("REGISTER ERROR:", error);
-
-    return res.status(500).json({
-      message: "Server error during registration"
-    });
-
-  }
+      return res.status(500).json({
+        message: "Failed to send OTP email. Try again later.",
+      });
+    }
 });
 // ======================
 // VERIFY EMAIL

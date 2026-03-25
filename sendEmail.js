@@ -9,11 +9,21 @@ if (!EMAIL || !EMAIL_PASSWORD) {
 
 // CREATE TRANSPORTER ONCE
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,              
+  secure: false,          
   auth: {
     user: EMAIL,
     pass: EMAIL_PASSWORD,
   },
+});
+
+transporter.verify((err, success) => {
+  if (err) {
+    console.log("❌ SMTP ERROR:", err);
+  } else {
+    console.log("✅ SMTP READY");
+  }
 });
 
 const sendEmail = async (to, subject, html) => {

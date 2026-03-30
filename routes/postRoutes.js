@@ -59,7 +59,8 @@ router.get("/user/:UserId", async (req, res) => {
     const posts = await Post.find({ UserId }).sort({ createdAt: -1 });
 
     const baseUrl =
-      process.env.BASE_URL || `https://${req.headers.host}`;
+      process.env.BASE_URL ||
+      `${req.protocol}://${req.get("host")}`;
 
     const formattedPosts = posts.map((post) => ({
       PostId: post.PostId,
@@ -90,7 +91,8 @@ router.get("/feed", async (req, res) => {
       .limit(limit);
 
     const baseUrl =
-      process.env.BASE_URL || `https://${req.headers.host}`;
+      process.env.BASE_URL ||
+      `${req.protocol}://${req.get("host")}`;
 
     const feed = await Promise.all(
       posts.map(async (post) => {
@@ -210,7 +212,8 @@ router.get("/comments/:PostId", async (req, res) => {
     });
 
     const baseUrl =
-      process.env.BASE_URL || `https://${req.headers.host}`;
+      process.env.BASE_URL ||
+      `${req.protocol}://${req.get("host")}`;
 
     const formattedComments = post.comments
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
@@ -257,7 +260,8 @@ router.get("/:PostId", async (req, res) => {
     }
 
     const baseUrl =
-        process.env.BASE_URL || `https://${req.headers.host}`;
+      process.env.BASE_URL ||
+      `${req.protocol}://${req.get("host")}`;
 
     const liked = currentUserId
       ? post.likes.some(id => id.toString() === currentUserId.toString())

@@ -28,7 +28,12 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cors());
 
 // Serve static uploads
-app.use("/uploads", express.static("uploads"));
+const path = require("path");
+
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"))
+);
 
 // Test route
 app.get("/", (req, res) => res.send("Locora Backend Running"));

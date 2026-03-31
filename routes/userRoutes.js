@@ -443,5 +443,29 @@ router.get("/:UserId", async (req, res) => {
   }
 });
 
+// ================= SEARCH USERS =================
+router.get("/search/all", async (req, res) => {
+  try {
+    const { query, currentUserId } = req.query;
+
+    if (!query) return res.json([]);
+
+    const users = await User.find({
+      UserId: { $ne: currentUserId },
+      $or: [
+        { Name: { $regex: query, $options: "i" } },
+        { Handle: { $regex: query, $options: "i" } },
+      ],
+    })
+      .select("UserId Handle profilePic")
+      .limit(20);
+
+    res.json(users);
+
+  } catch (err) {
+    console.error("User search error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 module.exports = router;

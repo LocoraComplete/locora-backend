@@ -207,14 +207,18 @@ router.get("/user/:userId", async (req, res) => {
         if (chat.ChatType === "private") {
           const members = await User.find({
             UserId: { $in: chat.Members },
-          }).select("UserId Handle");
+          }).select("UserId Handle ProfilePic");
 
-          users = members;
+           users = members.map((member) => ({
+              ...member.toObject(),
+              IsOnline: global.onlineUsers?.has(member.UserId) || false,
+            }));
         }
 
         return {
           ...chat.toObject(),
           Users: users, 
+          UnreadCount: chat.UnreadCounts?.get(userId) || 0,
         };
       })
     );

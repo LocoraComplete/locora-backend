@@ -115,7 +115,7 @@ router.get("/feed", async (req, res) => {
           UserId: post.UserId,
           handle,
           profilePic,
-          ImageUrl: post.ImageIds[0],
+          ImageUrl: post.ImageIds,
           likes: post.likes.length,
           comments: post.comments.length,
           likedByUser: liked
@@ -269,7 +269,8 @@ router.get("/:PostId", async (req, res) => {
       ImageUrls: post.ImageIds,
       likes: post.likes.length,
       likedByUser: liked,
-      commentsCount: post.comments.length
+      commentsCount: post.comments.length,
+      createdAt: post.createdAt
     });
 
   } catch (err) {

@@ -2,9 +2,7 @@ const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
-const upload = require("../middlewares/upload");
-const path = require("path");
-const fs = require("fs");
+const { upload, deleteFromCloudinary } = require("../config/cloudinary");
 
 const Post = require("../models/Post");
 const Chat = require("../models/Chat");
@@ -100,9 +98,7 @@ router.post("/login", async (req, res) => {
       Handle: user.Handle,
       Pronouns: user.Pronouns,
       Bio: user.Bio,
-      profilePic: user.profilePic
-        ? `${req.protocol}://${req.get("host")}${user.profilePic}`
-        : null,
+      profilePic: user.profilePic || null,
       emergencyContact: user.emergencyContact || "",
     });
 
@@ -133,21 +129,11 @@ router.delete("/delete/:UserId", async (req, res) => {
     const posts = await Post.find({ UserId });
 
     for (const post of posts) {
-
-      if (post.ImageId) {
-
-        const filePath = path.join(__dirname, "../uploads", post.ImageId);
-
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-
+      for (const url of post.ImageIds) {
+        await deleteFromCloudinary(url);
       }
-
     }
-
     await Post.deleteMany({ UserId });
-
 
     // ================= REMOVE USER LIKES =================
     await Post.updateMany(
@@ -221,13 +207,13 @@ router.post("/upload-profile/:UserId", upload.single("profilePic"), async (req, 
 
     const updatedUser = await User.findOneAndUpdate(
       { UserId },
-      { $set: { profilePic: `/uploads/${req.file.filename}` } },
+      { $set: { profilePic: req.file.path } },
       { new: true }
     );
 
     res.status(200).json({
       message: "Profile picture updated",
-      profilePic: `${req.protocol}://${req.get("host")}${updatedUser.profilePic}`,
+      profilePic: updatedUser.profilePic,
     });
 
   } catch (error) {
@@ -248,6 +234,16 @@ router.put("/update-profile/:UserId", upload.single("profilePic"), async (req, r
     const { UserId } = req.params;
     const { name, username, pronouns, bio } = req.body;
 
+    const existingUser = await User.findOne({ UserId });
+
+    if (!existingUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (req.file && existingUser.profilePic) {
+      await deleteFromCloudinary(existingUser.profilePic);
+    }
+
     const updateData = {
       Name: name,
       Handle: username,
@@ -256,7 +252,7 @@ router.put("/update-profile/:UserId", upload.single("profilePic"), async (req, r
     };
 
     if (req.file) {
-      updateData.profilePic = `/uploads/${req.file.filename}`;
+      updateData.profilePic = req.file.path;
     }
 
     const updatedUser = await User.findOneAndUpdate(
@@ -276,9 +272,7 @@ router.put("/update-profile/:UserId", upload.single("profilePic"), async (req, r
       Handle: updatedUser.Handle,
       Pronouns: updatedUser.Pronouns,
       Bio: updatedUser.Bio,
-      profilePic: updatedUser.profilePic
-        ? `${req.protocol}://${req.get("host")}${updatedUser.profilePic}`
-        : null,
+      profilePic: updatedUser.profilePic || null,
       emergencyContact: updatedUser.emergencyContact || "",
     });
 
@@ -438,9 +432,7 @@ router.get("/:UserId", async (req, res) => {
       Handle: user.Handle,
       Bio: user.Bio,
       Pronouns: user.Pronouns,
-      profilePic: user.profilePic
-        ? `${req.protocol}://${req.get("host")}${user.profilePic}`
-        : null,
+      profilePic: user.profilePic || null,
     });
 
   } catch (error) {

@@ -2,8 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Post = require("../models/Post");
 const getNextSequence = require("../utils/generateId");
-const upload = require("../middlewares/upload");
-const path = require("path");
+const { upload, deleteFromCloudinary } = require("../config/cloudinary");
 const User = require("../models/User");
 
 // ================= CREATE POST =================
@@ -15,7 +14,7 @@ router.post("/create", upload.array("images", 10), async (req, res) => {
     if (!req.files || req.files.length === 0)
       return res.status(400).json({ message: "At least one image required" });
 
-    const imageIds = req.files.map(file => file.filename);
+    const imageIds = req.files.map(file => file.path);
 
     const newPost = new Post({
       PostId: `P${Date.now()}`,
@@ -35,7 +34,7 @@ router.post("/create", upload.array("images", 10), async (req, res) => {
 });
 
 // ================= GET IMAGE =================
-router.get("/image/:filename", (req, res) => {
+/*router.get("/image/:filename", (req, res) => {
   const { filename } = req.params;
 
   if (!filename || filename === "undefined") {
@@ -49,7 +48,7 @@ router.get("/image/:filename", (req, res) => {
       res.status(404).json({ message: "Image not found" });
     }
   });
-});
+});*/
 
 // ================= GET POSTS BY USER =================
 router.get("/user/:UserId", async (req, res) => {
@@ -64,7 +63,7 @@ router.get("/user/:UserId", async (req, res) => {
 
     const formattedPosts = posts.map((post) => ({
       PostId: post.PostId,
-      ImageUrls: post.ImageIds.map(id => `${baseUrl}/api/posts/image/${id}`)
+      ImageUrls: post.ImageIds
     }));
 
     res.json(formattedPosts);
@@ -108,9 +107,7 @@ router.get("/feed", async (req, res) => {
 
         if (user && !user.isDeleted) {
           handle = user.Handle || "user";
-          profilePic = user.profilePic
-            ? `${baseUrl}${user.profilePic}`
-            : "";
+          profilePic = user.profilePic || "";
         }
 
         return {
@@ -118,7 +115,7 @@ router.get("/feed", async (req, res) => {
           UserId: post.UserId,
           handle,
           profilePic,
-          ImageUrl: `${baseUrl}/api/posts/image/${post.ImageIds[0]}`,
+          ImageUrl: post.ImageIds[0],
           likes: post.likes.length,
           comments: post.comments.length,
           likedByUser: liked
@@ -226,9 +223,7 @@ router.get("/comments/:PostId", async (req, res) => {
 
         if (user && !user.isDeleted) {
           handle = user.Handle || "user";
-          profilePic = user.profilePic
-            ? `${baseUrl}${user.profilePic}`
-            : "";
+          profilePic = user.profilePic || "";
         }
 
         return {
@@ -271,9 +266,7 @@ router.get("/:PostId", async (req, res) => {
       PostId: post.PostId,
       UserId: post.UserId,
       Caption: post.Caption,
-      ImageUrls: post.ImageIds.map(
-        id => `${baseUrl}/api/posts/image/${id}`
-      ),
+      ImageUrls: post.ImageIds,
       likes: post.likes.length,
       likedByUser: liked,
       commentsCount: post.comments.length
@@ -302,6 +295,9 @@ router.delete("/:PostId", async (req, res) => {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
+    for (const url of post.ImageIds) {
+      await deleteFromCloudinary(url);
+    }
     await Post.deleteOne({ PostId });
 
     res.json({ message: "Post deleted successfully" });

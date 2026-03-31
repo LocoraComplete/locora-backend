@@ -15,8 +15,14 @@ router.post("/create", async (req, res) => {
     }
 
     const user = await User.findOne({ UserId: CreatedBy });
-    if (!user) {
-      return res.status(400).json({ message: "Invalid user" });
+    if (!user) return res.status(400).json({ message: "Invalid user" });
+
+    const existing = await Chat.findOne({
+      ChatType: "group",
+      GroupName: { $regex: new RegExp(`^${GroupName.trim()}$`, "i") },
+    });
+    if (existing) {
+      return res.status(409).json({ message: "Group name already exists" });
     }
 
     const newChat = new Chat({
@@ -29,7 +35,6 @@ router.post("/create", async (req, res) => {
 
     await newChat.save();
     res.status(201).json(newChat);
-
   } catch (err) {
     console.error("Create group error:", err);
     res.status(500).json({ message: "Server error" });
@@ -190,6 +195,25 @@ router.delete("/delete/:chatId", async (req, res) => {
   }
 });
 
+// ================= SEARCH GROUPS =================
+router.get("/search", async (req, res) => {
+  try {
+    const { query, userId } = req.query;
+    if (!query) return res.json({ groups: [] });
+
+    const groups = await Chat.find({
+      ChatType: "group",
+      GroupName: { $regex: query, $options: "i" },
+    })
+      .select("ChatId GroupName Members Description CreatedOn")
+      .limit(20);
+
+    res.json({ groups });
+  } catch (err) {
+    console.error("Group search error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // ================= USER CHATS (GROUP + PRIVATE) =================
 router.get("/user/:userId", async (req, res) => {

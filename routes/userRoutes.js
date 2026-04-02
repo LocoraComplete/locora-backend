@@ -58,6 +58,27 @@ router.post("/register", async (req, res) => {
 
   } catch (error) {
     console.error("REGISTER ERROR:", error);
+
+    if (error.code === 11000) {
+      const duplicateField = Object.keys(error.keyPattern || {})[0];
+
+      if (duplicateField === "Email") {
+        return res.status(400).json({
+          message: "This email is already registered",
+        });
+      }
+
+      if (duplicateField === "Phone") {
+        return res.status(400).json({
+          message: "This phone number is already registered",
+        });
+      }
+
+      return res.status(400).json({
+        message: "This account already exists",
+      });
+    }
+
     res.status(500).json({ message: "Server error" });
   }
 });

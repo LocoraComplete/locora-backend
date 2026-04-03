@@ -8,25 +8,48 @@ const User = require("../models/User");
 // ================= CREATE POST =================
 router.post("/create", upload.array("images", 10), async (req, res) => {
   try {
-    const { UserId, Caption } = req.body;
+    const {
+      UserId,
+      Caption,
+      PlaceId,
+      PlaceName,
+      Latitude,
+      Longitude,
+      Address,
+    } = req.body;
 
-    if (!UserId) return res.status(400).json({ message: "UserId required" });
-    if (!req.files || req.files.length === 0)
-      return res.status(400).json({ message: "At least one image required" });
+    if (!UserId) {
+      return res.status(400).json({ message: "UserId required" });
+    }
 
-    const imageIds = req.files.map(file => file.path);
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        message: "At least one image required",
+      });
+    }
+
+    const imageIds = req.files.map((file) => file.path);
 
     const newPost = new Post({
       PostId: `P${Date.now()}`,
       UserId,
       ImageIds: imageIds,
-      Caption
+      Caption,
+
+      // LOCATION DATA
+      PlaceId: PlaceId || "",
+      PlaceName: PlaceName || "",
+      Latitude: Latitude ? Number(Latitude) : null,
+      Longitude: Longitude ? Number(Longitude) : null,
+      Address: Address || "",
     });
 
     await newPost.save();
 
-    res.status(201).json({ message: "Post created", post: newPost });
-
+    res.status(201).json({
+      message: "Post created",
+      post: newPost,
+    });
   } catch (err) {
     console.error("CREATE POST ERROR:", err);
     res.status(500).json({ message: "Server error" });
@@ -63,7 +86,10 @@ router.get("/user/:UserId", async (req, res) => {
 
     const formattedPosts = posts.map((post) => ({
       PostId: post.PostId,
-      ImageUrls: post.ImageIds
+      ImageUrls: post.ImageIds,
+      PlaceName: post.PlaceName,
+      Latitude: post.Latitude,
+      Longitude: post.Longitude,
     }));
 
     res.json(formattedPosts);
@@ -115,10 +141,20 @@ router.get("/feed", async (req, res) => {
           UserId: post.UserId,
           handle,
           profilePic,
+          Caption: post.Caption,
           ImageUrl: post.ImageIds,
+
+          // LOCATION
+          PlaceId: post.PlaceId,
+          PlaceName: post.PlaceName,
+          Latitude: post.Latitude,
+          Longitude: post.Longitude,
+          Address: post.Address,
+
           likes: post.likes.length,
           comments: post.comments.length,
-          likedByUser: liked
+          likedByUser: liked,
+          createdAt: post.createdAt,
         };
       })
     );
@@ -267,10 +303,18 @@ router.get("/:PostId", async (req, res) => {
       UserId: post.UserId,
       Caption: post.Caption,
       ImageUrls: post.ImageIds,
+
+      // LOCATION
+      PlaceId: post.PlaceId,
+      PlaceName: post.PlaceName,
+      Latitude: post.Latitude,
+      Longitude: post.Longitude,
+      Address: post.Address,
+
       likes: post.likes.length,
       likedByUser: liked,
       commentsCount: post.comments.length,
-      createdAt: post.createdAt
+      createdAt: post.createdAt,
     });
 
   } catch (err) {

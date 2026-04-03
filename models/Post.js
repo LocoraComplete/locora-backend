@@ -15,6 +15,12 @@ const postSchema = new mongoose.Schema(
 
   Caption: { type: String, trim: true, maxlength: 300 },
 
+  PlaceId: String,
+  PlaceName: String,
+  Latitude: Number,
+  Longitude: Number,
+  Address: String,
+
   likes: [{ type: String }],
   comments: [commentSchema]
 },

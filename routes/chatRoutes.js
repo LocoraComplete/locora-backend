@@ -53,11 +53,11 @@ router.get("/recommend/:userId", async (req, res) => {
     }
 
     const chats = await Chat.find({
-      Members: { $nin: [userId] }, // NOT IN members array
+      ChatType: "group",  
+      Members: { $nin: [userId] },
     }).sort({ CreatedOn: -1 });
 
     res.json(chats);
-
   } catch (err) {
     console.error("Recommend error:", err);
     res.status(500).json({ message: "Server error" });

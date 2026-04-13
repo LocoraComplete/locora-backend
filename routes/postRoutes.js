@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Post = require("../models/Post");
+const PostReport = require("../models/PostReport");
 const getNextSequence = require("../utils/generateId");
 const { upload, deleteFromCloudinary } = require("../config/cloudinary");
 const User = require("../models/User");
@@ -110,7 +111,7 @@ router.get("/feed", async (req, res) => {
 
     const currentUserId = req.query.UserId;
 
-    const posts = await Post.find()
+    const posts = await Post.find({ isHidden: false })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -350,6 +351,68 @@ router.delete("/:PostId", async (req, res) => {
   } catch (err) {
     console.log("DELETE POST ERROR:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ================= REPORT POST =================
+router.post("/report", async (req, res) => {
+  try {
+    const { PostId, ReportedBy, PostOwnerId, reason } = req.body;
+
+    if (!PostId || !ReportedBy || !reason) {
+      return res.status(400).json({
+        message: "Missing required fields",
+      });
+    }
+
+    const post = await Post.findOne({ PostId });
+    if (!post) {
+      return res.status(404).json({
+        message: "Post not found",
+      });
+    }
+
+    const existingReport = await PostReport.findOne({
+      PostId,
+      ReportedBy,
+    });
+
+    if (existingReport) {
+      return res.status(400).json({
+        message: "You already reported this post",
+      });
+    }
+
+    const report = new PostReport({
+      ReportId: `R${Date.now()}`,
+      PostId,
+      ReportedBy,
+      PostOwnerId,
+      reason,
+    });
+
+    await report.save();
+
+    // increment report count
+    post.reportCount += 1;
+
+    // auto hide after 5 reports
+    if (post.reportCount >= 5) {
+      post.isHidden = true;
+    }
+
+    await post.save();
+
+    res.status(201).json({
+      message: "Report submitted successfully",
+      hidden: post.isHidden,
+      reportCount: post.reportCount,
+    });
+  } catch (err) {
+    console.log("REPORT POST ERROR:", err);
+    res.status(500).json({
+      message: "Server error",
+    });
   }
 });
 

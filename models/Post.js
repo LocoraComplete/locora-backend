@@ -22,7 +22,10 @@ const postSchema = new mongoose.Schema(
   Address: String,
 
   likes: [{ type: String }],
-  comments: [commentSchema]
+  comments: [commentSchema],
+
+  reportCount: { type: Number, default: 0 },
+  isHidden: { type: Boolean, default: false }
 },
 { timestamps: true }
 );

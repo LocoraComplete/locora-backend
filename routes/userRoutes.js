@@ -8,6 +8,9 @@ const Post = require("../models/Post");
 const Chat = require("../models/Chat");
 const Message = require("../models/Message");
 
+const { Resend } = require("resend");
+const resend = new Resend(process.env.RESEND_API_KEY);
+const sendOTPEmail = require("../utils/sendEmail"); 
 
 // ======================
 // REGISTER
@@ -42,6 +45,9 @@ router.post("/register", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(Password, 10);
 
+    // GENERATE OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
     const newUser = new User({
       UserId: "U" + Date.now(),
       Name,
@@ -51,10 +57,20 @@ router.post("/register", async (req, res) => {
       Gender,
       emergencyContact: formattedEmergency,
       profileCompleted: false,
+      isVerified: false,
+      otp,
+      otpExpiry: Date.now() + 5 * 60 * 1000, // 5 min
     });
 
     await newUser.save();
-    res.status(201).json({ message: "User created successfully" });
+
+    // SEND EMAIL
+    await sendOTPEmail(Email, otp);
+
+    res.status(201).json({
+      message: "OTP sent to email",
+      email: Email,
+    });
 
   } catch (error) {
     console.error("REGISTER ERROR:", error);
@@ -85,6 +101,70 @@ router.post("/register", async (req, res) => {
 
 
 // ======================
+// VERIFY OTP
+// ======================
+router.post("/verify-otp", async (req, res) => {
+  try {
+    const { Email, otp } = req.body;
+
+    const user = await User.findOne({ Email });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.otp !== otp) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    if (user.otpExpiry < Date.now()) {
+      return res.status(400).json({ message: "OTP expired" });
+    }
+
+    user.isVerified = true;
+    user.otp = null;
+    user.otpExpiry = null;
+
+    await user.save();
+
+    res.json({ message: "Email verified successfully" });
+
+  } catch (err) {
+    console.error("VERIFY OTP ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+// ======================
+// RESEND OTP
+// ======================
+router.post("/resend-otp", async (req, res) => {
+  try {
+    const { Email } = req.body;
+
+    const user = await User.findOne({ Email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    user.otp = otp;
+    user.otpExpiry = Date.now() + 5 * 60 * 1000;
+
+    await user.save();
+
+    await sendOTPEmail(Email, otp);
+
+    res.json({ message: "OTP resent successfully" });
+
+  } catch (err) {
+    console.error("RESEND OTP ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ======================
 // LOGIN
 // ======================
 router.post("/login", async (req, res) => {
@@ -104,6 +184,13 @@ router.post("/login", async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    // BLOCK LOGIN IF NOT VERIFIED
+    if (!user.isVerified) {
+      return res.status(403).json({
+        message: "Please verify your email before logging in",
+      });
     }
 
     const isMatch = await bcrypt.compare(Password, user.Password);

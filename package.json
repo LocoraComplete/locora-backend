@@ -23,6 +23,7 @@
     "multer-gridfs-storage": "^5.0.2",
     "multer-storage-cloudinary": "^4.0.0",
     "pg": "^8.17.0",
+    "resend": "^6.12.2",
     "socket.io": "^4.8.3",
     "validator": "^13.15.26"
   }
